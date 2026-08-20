@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.joshuaswarren.remnic",
+  "name": "Remnic Recall",
+  "version": "0.1.0",
+  "author": "Joshua Warren",
+  "description": "Your AI agents' memory in the Omarchy bar: live capture activity, recall search, and a morning briefing panel powered by Remnic.",
+  "kinds": [
+    "bar-widget",
+    "panel"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml",
+    "panel": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Remnic Recall",
+    "description": "Agent memory activity and recall search.",
+    "category": "Developer Tools",
+    "defaultSection": "right",
+    "allowMultiple": false
+  }
+}
