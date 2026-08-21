@@ -585,12 +585,13 @@ QtObject {
     if (markdown === "" && node.sections && typeof node.sections === "object") {
       // Section items are plain sentences, not markdown; escapeMarkdown already
       // renders them inert, so this path is not sanitized again.
-      sectionLines(lines, "Active threads", node.sections.activeThreads)
-      sectionLines(lines, "Recent entities", node.sections.recentEntities)
-      sectionLines(lines, "Open commitments", node.sections.openCommitments)
-      sectionLines(lines, "Suggested follow-ups", node.sections.suggestedFollowups)
-      markdown = lines.length > 0
-        ? lines.join("\n")
+      var sections = []
+      sectionLines(sections, "Active threads", node.sections.activeThreads)
+      sectionLines(sections, "Recent entities", node.sections.recentEntities)
+      sectionLines(sections, "Open commitments", node.sections.openCommitments)
+      sectionLines(sections, "Suggested follow-ups", node.sections.suggestedFollowups)
+      markdown = sections.length > 0
+        ? sections.join("\n")
         : "Nothing to report for this window \u2014 the engine produced an empty briefing."
     }
     if (markdown === "") return unavailable
