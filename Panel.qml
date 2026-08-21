@@ -966,7 +966,10 @@ Item {
 
                 Text {
                   anchors.centerIn: parent
-                  visible: !root.searching && !root.searchFailed
+                  // A claim about the store, so it may not show until the store
+                  // actually answered: not while typing (debounce running), not
+                  // while a search is in flight.
+                  visible: !root.searching && !root.searchFailed && !searchDebounce.running
                     && root.query.trim().length >= 3 && root.results.length === 0
                   text: "No memories match"
                   color: Qt.darker(Color.popups.text, 1.5)
