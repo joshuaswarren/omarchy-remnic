@@ -33,6 +33,7 @@ QtObject {
     return "engine unreachable \u00b7 last seen " + (root.lastSeenLabel !== "" ? root.lastSeenLabel : "never")
   }
   property string namespace: ""
+  property int todayCount: 0
   property var recent: []
   // True only while the rows on screen came from the bundled sample dataset.
   // The DEMO badge keys off this rather than off `mode`, so fabricated content
@@ -46,7 +47,7 @@ QtObject {
   function search(query, cb) {
     if (typeof cb !== "function") return
     var text = String(query === undefined || query === null ? "" : query)
-    if (text.replace(/^\s+|\s+$/g, "") === "") { cb([], true); return }
+    if (text.trim() === "") { cb([], true); return }
     if (root.mode === "demo") { cb(mapList(demoData.filter(text), searchLimit), true); return }
 
     abortSearch()
@@ -83,13 +84,29 @@ QtObject {
   }
 
   readonly property string daemonUrl: String(setting("daemonUrl", "http://127.0.0.1:4318")).replace(/\/+$/, "")
-  readonly property string configuredNamespace: String(setting("namespace", "")).replace(/^\s+|\s+$/g, "")
+  // The namespace reaches PanelHero's detail pill, a host component that does
+  // not pin textFormat, so a daemon-supplied value must not be able to carry
+  // markup. Namespaces are identifiers; keep it to identifier characters.
+  function safeNamespace(value) {
+    return String(value === undefined || value === null ? "" : value)
+      .replace(/[^A-Za-z0-9._:-]/g, "")
+      .substring(0, 48)
+  }
+
+  readonly property string configuredNamespace: safeNamespace(setting("namespace", ""))
+
+  // scheme://authority, lowercased. Used to prove a response came back from the
+  // origin we authorized rather than one a redirect chose.
+  function originOf(url) {
+    var parts = /^([A-Za-z][A-Za-z0-9+.-]*):\/\/([^\/?#]*)/.exec(String(url || ""))
+    return parts === null ? "" : (parts[1] + "://" + parts[2]).toLowerCase()
+  }
   // argv[0] of the one subprocess. A bare name goes through PATH; an absolute
   // path is taken as-is. Anything else (a relative path, shell metacharacters)
   // is a hand-edit mistake, not a feature, so fall back to the default rather
   // than executing whatever it names.
   readonly property string remnicCommand: {
-    var raw = String(setting("remnicCommand", "remnic")).replace(/^\s+|\s+$/g, "")
+    var raw = String(setting("remnicCommand", "remnic")).trim()
     if (/^[A-Za-z0-9._-]+$/.test(raw)) return raw
     if (/^\/[^\0]*$/.test(raw) && raw.indexOf("..") < 0) return raw
     return "remnic"
@@ -98,7 +115,7 @@ QtObject {
   readonly property int pollSeconds: positiveInt(setting("pollSeconds", 60), 60, 5)
   readonly property int recentLimit: positiveInt(setting("recentLimit", 30), 30, 1)
   readonly property string demoSetting: {
-    var raw = String(setting("demoMode", "auto")).toLowerCase().replace(/^\s+|\s+$/g, "")
+    var raw = String(setting("demoMode", "auto")).toLowerCase().trim()
     return (raw === "on" || raw === "off") ? raw : "auto"
   }
   readonly property string tokenPath: expandHome(String(setting("tokenPath", "~/.remnic/tokens.json")))
@@ -107,10 +124,19 @@ QtObject {
   // wire. Remote daemons are supported, but sending the credential there is an
   // explicit choice, not a default.
   readonly property bool allowInsecureToken: setting("allowInsecureToken", false) === true
+  // Evaluate the REAL host: userinfo would otherwise let a URL like
+  // http://127.0.0.1:pw@evil.example masquerade as loopback and ship the
+  // bearer token off-box in cleartext.
   readonly property bool tokenDestinationSafe: {
-    var url = root.daemonUrl
-    if (/^https:\/\//i.test(url)) return true
-    if (/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(url)) return true
+    var parts = /^(https?):\/\/([^\/?#]*)/i.exec(root.daemonUrl)
+    if (parts === null) return false
+    var scheme = parts[1].toLowerCase()
+    if (scheme === "https") return true
+    var authority = parts[2]
+    var at = authority.lastIndexOf("@")
+    var hostPort = at >= 0 ? authority.substring(at + 1) : authority
+    var host = hostPort.replace(/:\d+$/, "").toLowerCase()
+    if (host === "127.0.0.1" || host === "localhost" || host === "[::1]" || host === "::1") return true
     return root.allowInsecureToken
   }
 
@@ -264,8 +290,9 @@ QtObject {
     else if (qmd.active === true) qmdState = "active"
     else if (qmd.degraded === true) qmdState = "degraded"
     else qmdState = "warming"
-    if (configuredNamespace !== "") namespace = configuredNamespace
-    else namespace = String(doc.defaultNamespace || "")
+    namespace = configuredNamespace !== ""
+      ? configuredNamespace
+      : safeNamespace(doc.defaultNamespace)
   }
 
   function markUnhealthy() {
@@ -283,7 +310,7 @@ QtObject {
     var list = all.length > maxMemoriesParsed ? all.slice(0, maxMemoriesParsed) : all
     var reported = doc ? String(doc.namespace || "") : ""
     if (configuredNamespace !== "") namespace = configuredNamespace
-    else if (reported !== "") namespace = reported
+    else if (reported !== "") namespace = safeNamespace(reported)
 
     var midnight = new Date()
     midnight.setHours(0, 0, 0, 0)
@@ -362,6 +389,11 @@ QtObject {
       // 401 and 503 included, proves something is listening.
       if (request.status > 0) root.everResponded = true
       if (request.status !== 200) { onFail(); return }
+      // The gate above authorized the CONFIGURED url; a redirect can land the
+      // request somewhere else. Where the runtime exposes the final url, refuse
+      // a response that came from a different origin than we authorized.
+      if (typeof request.responseURL === "string" && request.responseURL !== ""
+          && root.originOf(request.responseURL) !== root.originOf(url)) { onFail(); return }
       var body = request.responseText
       if (typeof body !== "string" || body.length > root.maxResponseChars) { onFail(); return }
       var doc = null
@@ -455,7 +487,7 @@ QtObject {
 
   function firstString(candidates) {
     for (var i = 0; i < candidates.length; i++) {
-      if (typeof candidates[i] === "string" && candidates[i].replace(/^\s+|\s+$/g, "") !== "")
+      if (typeof candidates[i] === "string" && candidates[i].trim() !== "")
         return candidates[i]
     }
     return ""

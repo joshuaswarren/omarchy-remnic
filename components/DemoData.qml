@@ -32,7 +32,7 @@ QtObject {
   // Substring recall over everything a row shows, so a judge typing "postgres"
   // or "hyprland" gets the hit they expect.
   function filter(query) {
-    var needle = String(query || "").toLowerCase().replace(/^\s+|\s+$/g, "")
+    var needle = String(query || "").toLowerCase().trim()
     if (needle === "") return []
     var out = []
     for (var i = 0; i < memories.length; i++) {
