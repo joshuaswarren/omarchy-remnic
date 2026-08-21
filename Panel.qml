@@ -134,8 +134,8 @@ Item {
   // Fabricated rows always carry a visible DEMO mark (DESIGN.md invariant 10):
   // the hero's health line covers demo mode, the footer chip covers all others.
   readonly property bool demoMarkNeeded: client.showingDemo && client.mode !== "demo"
-  // The footer band shows the DEMO chip, the copy confirmation, or both.
-  readonly property bool footerActive: root.demoMarkNeeded || root.copied
+  // The footer band shows the DEMO chip, the action confirmation, or both.
+  readonly property bool footerActive: root.demoMarkNeeded || root.copied || root.sentToAgent
 
   // The active tab's scrolling list, when it has one; drives the bottom fade.
   readonly property var activeList: root.tab === "recall" ? resultList
@@ -412,8 +412,8 @@ Item {
     copyResetTimer.restart()
   }
 
-  // The only subprocess in the panel. Memory text goes to stdin, never argv,
-  // and only on an explicit Enter (DESIGN.md security invariant 1).
+  // Memory text goes to stdin, never argv, and only on an explicit Enter
+  // (DESIGN.md security invariant 1).
   Process {
     id: copyProcess
 
@@ -426,6 +426,51 @@ Item {
       // wl-copy reads until EOF; closing stdin is what commits the copy.
       copyProcess.stdinEnabled = false
     }
+  }
+
+  // ----------------------------------------------------------- agent handoff
+  property bool sentToAgent: false
+
+  Timer {
+    id: agentResetTimer
+    interval: 1500
+    onTriggered: root.sentToAgent = false
+  }
+
+  // Ctrl+Enter seeds the default coding agent with the selected memory. Opt-in
+  // only: `omarchy-agent-prompt` takes the prompt as an argument, so the text
+  // lands in the process list where any local process can read it. Off unless
+  // the user sets `sendToAgent`.
+  function sendSelectedToAgent() {
+    if (!client.sendToAgentEnabled) return
+    var row = root.selectedRow()
+    if (!row) return
+    var text = String(row.summary || "")
+    if (text === "" || agentProcess.running) return
+
+    agentProcess.command = ["omarchy-agent-prompt", root.clampPrompt(text)]
+    agentProcess.running = true
+    root.sentToAgent = true
+    agentResetTimer.restart()
+  }
+
+  // An argument vector is not an unbounded channel; keep the seed to something
+  // a prompt box can hold.
+  readonly property int maxPromptChars: 8000
+
+  function clampPrompt(text) {
+    var value = String(text)
+    return value.length > root.maxPromptChars
+      ? value.substring(0, root.maxPromptChars) + "\u2026"
+      : value
+  }
+
+  // Fixed argv, no shell, no stdin. The binary name is a constant here: it is
+  // never taken from settings or from daemon content.
+  Process {
+    id: agentProcess
+
+    command: ["omarchy-agent-prompt", ""]
   }
 
   // ------------------------------------------------------------- lifecycle
@@ -527,7 +572,8 @@ Item {
       return
     }
     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-      root.copySelected()
+      if (event.modifiers & Qt.ControlModifier) root.sendSelectedToAgent()
+      else root.copySelected()
       event.accepted = true
       return
     }
@@ -1212,30 +1258,31 @@ Item {
           Item {
             width: parent.width
             visible: root.footerActive
-            height: visible ? Math.max(demoChip.height, copiedPill.height) : 0
+            height: visible ? Math.max(demoChip.height, actionPill.height) : 0
 
+            // One pill, two actions: Enter copies, Ctrl+Enter seeds the agent.
             Rectangle {
-              id: copiedPill
+              id: actionPill
 
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
-              width: copiedRow.implicitWidth + Style.spacing.md * 2
-              height: copiedRow.implicitHeight + Style.spacing.xxs * 2
+              width: actionRow.implicitWidth + Style.spacing.md * 2
+              height: actionRow.implicitHeight + Style.spacing.xxs * 2
               radius: Style.cornerRadius > 0 ? Style.cornerRadius : Math.round(height / 2)
               color: Style.normalFillFor(Color.accent, Color.accent)
-              opacity: root.copied ? 1 : 0
+              opacity: (root.copied || root.sentToAgent) ? 1 : 0
               visible: opacity > 0
 
               Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
 
               Row {
-                id: copiedRow
+                id: actionRow
 
                 anchors.centerIn: parent
                 spacing: Style.spacing.sm
 
                 Text {
-                  text: "󰆏"
+                  text: root.sentToAgent ? "󰚩" : "󰆏"
                   color: Color.accent
                   font.family: Style.font.family
                   font.pixelSize: Style.font.caption
@@ -1243,7 +1290,7 @@ Item {
                 }
 
                 Text {
-                  text: "Copied"
+                  text: root.sentToAgent ? "Sent to agent" : "Copied"
                   color: Color.accent
                   font.family: Style.font.family
                   font.pixelSize: Style.font.caption

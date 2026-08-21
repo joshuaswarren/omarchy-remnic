@@ -16,7 +16,7 @@ Pinned endpoints (verified against a live daemon):
 | Recent + today count | `GET /engram/v1/memories?sort=created_desc&limit=100[&namespace=]` | `{count,total,memories:[{id,path,category,status,created,updated,tags,preview}]}`; one call serves both: Recent shows first `recentLimit`, chip counts `created >=` local midnight (cap display "99+") |
 | Recall search | `GET /engram/v1/memories?q=<query>&sort=updated_desc&limit=20[&namespace=]` | substring browse; verified returning ranked-enough hits. `POST /engram/v1/memories/search` returned 0 for every probe on a live store — do NOT use it |
 | Full text of one memory | `preview` field (180 chars) + expandable row fetch is **not** available over browse; Enter copies `preview` + `path` reference. v1 renders preview text; full-text fetch is a v2 item |
-| Briefing | subprocess: `[remnicCommand, "briefing", "--format", "json"]` | The daemon has no briefing endpoint. This is the ONLY subprocess in the plugin (A6 allowlist = exactly this argv shape). ENOENT or non-zero → hide Briefing tab (spec §6 degradation) |
+| Briefing | subprocess: `[remnicCommand, "briefing", "--format", "json"]` | The daemon has no briefing endpoint. ENOENT or non-zero → hide Briefing tab (spec §6 degradation) |
 
 **Auth resolution** (in order): inline setting `token` → `tokenPath` JSON (default `~/.remnic/tokens.json`, real shape `{"tokens": [{connector, token, …}]}`; accept a bare array fallback), first entry's token. `daemonUrl` setting defaults to `http://127.0.0.1:4318` (Remnic's `agentAccessHttp` default). README documents `remnic token generate omarchy` as the setup step. Note: a token is only valid on the daemon that issued it — pointing `daemonUrl` at a remote daemon requires that daemon's token via the `token` setting.
 
@@ -76,13 +76,14 @@ function refresh()              // re-poll now
 - Recent: same rows, newest first, `recentLimit` items, section header "Today" / "Earlier".
 - Briefing: rendered markdown-ish text (read-only), generation timestamp, refresh re-runs the CLI with a spinner.
 - Footer: health line + namespace; offline mode replaces content with a card: warning glyph, "Remnic engine unreachable", last-seen, `remnic doctor` hint, Retry button. Demo mode shows a persistent translucent "DEMO DATA" watermark chip in the footer.
-- Keyboard: Tab cycles tabs; ↑/↓ move row selection; → expands; Enter copies; Esc closes.
+- Keyboard: Tab cycles tabs; ↑/↓ move row selection; → expands; Enter copies; Ctrl+Enter seeds the default agent when `sendToAgent` is enabled; Esc closes.
 
 ## 5. Security invariants (A6 audit points)
 
-1. Exactly TWO `Process` call sites in the whole tree (the A6 allowlist):
+1. Exactly THREE `Process` call sites in the whole tree (the A6 allowlist):
    - briefing runner in `RemnicClient.qml`, argv `[remnicCommand, "briefing", "--format", "json"]` — no shell, no user-influenced argv beyond `remnicCommand` (settings-provided binary path, execvp semantics, never parsed by a shell);
-   - clipboard copy in the panel, argv `["wl-copy"]` with the memory text written to stdin (never in argv), spawned only on explicit Enter.
+   - clipboard copy in the panel, argv `["wl-copy"]` with the memory text written to stdin (never in argv), spawned only on explicit Enter;
+   - agent handoff in the panel, argv `["omarchy-agent-prompt", <memory text>]` — a constant binary name, spawned only on explicit Ctrl+Enter and only when the user has set `sendToAgent: true`. This is the one place memory text is passed as an argument, which makes it readable in the process list by any local process; that exposure is the entire reason the action is opt-in and off by default. The seed is clamped to `maxPromptChars`. All three are read-only with respect to Remnic: none can create, forget, or migrate a memory.
 2. Token read from disk is never logged, never rendered, sent only as `Authorization` header to `daemonUrl`.
 3. No writes anywhere except the clipboard on explicit Enter.
 4. Memory text renders with `textFormat: Text.PlainText`. The briefing body is the single `MarkdownText` surface and is treated as untrusted, because the engine assembles it from memory content: `sanitizeBriefingMarkdown` escapes `\`, `<`, `[`, `]`, and `|` on the verbatim path, and `escapeMarkdown` renders section items fully inert. **What that guarantees:** no inline HTML, no image (so no remote fetch), no link syntax, no table. **What it does not:** a bare URL can still be auto-linked by the GFM parser into an inert anchor — the plugin installs no `onLinkActivated`, so it cannot be opened or followed. Headings, emphasis, lists, and code spans survive by design.
@@ -105,7 +106,9 @@ function refresh()              // re-poll now
   "namespace": "",
   "pollSeconds": 60,
   "recentLimit": 30,
-  "demoMode": "auto"
+  "demoMode": "auto",
+  "allowInsecureToken": false,
+  "sendToAgent": false
 }
 ```
 

@@ -99,7 +99,7 @@ Left-click: toggle panel (opens on Recall tab). Right-click: refresh / switch ta
 - M3: Briefing tab + IPC deep-link (A3).
 - M4: Polish — theming, vertical bar, README screenshots and demo GIF (A7, A8).
 
-## 10. Open questions
+## 10. Open questions (resolved during implementation)
 
-- Pin minimum Remnic version, or feature-detect per command? (Lean: feature-detect; the engine moves fast.)
-- Should Ctrl+Enter "send to default agent" ship in v1? It's the best demo moment (`omarchy agent prompt` exists for exactly this) but adds a security-review surface. (Lean: yes, behind a setting, off by default.)
+- Pin minimum Remnic version, or feature-detect per command? **Resolved: feature-detect.** The Briefing tab hides itself when the briefing command is missing or fails; no version is pinned.
+- Should Ctrl+Enter "send to default agent" ship in v1? **Resolved: yes, behind `sendToAgent`, off by default.** It spawns `omarchy-agent-prompt` with the memory text as an argument, which is readable in the process list, so it is opt-in and documented as such — see [DESIGN.md §5](DESIGN.md#5-security-invariants-a6-audit-points) invariant 1.

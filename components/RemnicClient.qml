@@ -28,7 +28,9 @@ QtObject {
   // chip tooltip leads with the count.
   readonly property string healthLine: {
     if (root.mode === "demo") return "demo data"
-    if (root.mode === "live") return "engine ok \u00b7 qmd " + root.qmdState
+    if (root.mode === "live")
+      return "engine ok \u00b7 qmd " + root.qmdState
+        + (root.lastSyncLabel !== "" ? " \u00b7 synced " + root.lastSyncLabel : "")
     if (root.mode === "connecting") return "connecting to engine\u2026"
     // "last seen never" reads as a null in a timestamp slot; give the
     // never-connected case its own clause.
@@ -120,6 +122,12 @@ QtObject {
     if (/^\/[^\0]*$/.test(raw) && raw.indexOf("..") < 0) return raw
     return "remnic"
   }
+
+  // Off by default and opt-in only. When enabled, Ctrl+Enter hands the selected
+  // memory's text to `omarchy-agent-prompt`, which takes it as an argument, so
+  // the text is visible in the process list to other local processes. That is
+  // the whole reason this is a setting rather than always-on behaviour.
+  readonly property bool sendToAgentEnabled: setting("sendToAgent", false) === true
   // Floors keep a hand-edited shell.json from turning the poll into a spin loop.
   readonly property int pollSeconds: positiveInt(setting("pollSeconds", 60), 60, 5)
   readonly property int recentLimit: positiveInt(setting("recentLimit", 30), 30, 1)
@@ -215,6 +223,7 @@ QtObject {
   property bool demoApplied: false
   property string qmdState: "unknown"
   property string lastSeenLabel: ""
+  property string lastSyncLabel: ""
 
   property var healthRequest: null
   property var memoriesRequest: null
@@ -335,6 +344,9 @@ QtObject {
     recent = mapList(list, recentLimit)
     todayCount = counted
     if (hasCounted && counted > previous) newMemories(counted - previous)
+    // G3 "last sync": the clock on the most recent successful read, not the
+    // health probe, so the line describes when the data on screen arrived.
+    lastSyncLabel = Qt.formatDateTime(new Date(), "HH:mm")
     hasCounted = true
   }
 
