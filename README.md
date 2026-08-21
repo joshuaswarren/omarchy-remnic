@@ -53,12 +53,14 @@ Settings live inline on the plugin entry in `~/.config/omarchy/shell.json` (`bar
   "namespace": "",
   "pollSeconds": 60,
   "recentLimit": 30,
-  "demoMode": "auto"
+  "demoMode": "auto",
+  "allowInsecureToken": false
 }
 ```
 
 - `daemonUrl` — the Remnic access daemon. A remote daemon works too; use a token that daemon issued.
 - `token` / `tokenPath` — inline token wins; otherwise the first entry of the token store is used.
+- `allowInsecureToken` — the bearer token is only sent to `https://` or a loopback address. Set this to `true` to also send it over plaintext HTTP to a remote daemon (the plugin still works without it; it just runs unauthenticated and will read as unreachable if the daemon requires auth).
 - `namespace` — empty uses the daemon's default namespace.
 - `demoMode` — `auto` (demo only when no engine is present), `on`, `off`.
 

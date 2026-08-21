@@ -1200,7 +1200,8 @@ Item {
 
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              visible: client.mode === "demo"
+              // Keyed to the data, not the mode: sample rows always carry the mark.
+              visible: client.showingDemo
               width: demoLabel.implicitWidth + Style.spacing.md * 2
               height: demoLabel.implicitHeight + Style.spacing.xxs * 2
               radius: Style.cornerRadius > 0 ? Style.cornerRadius : Math.round(height / 2)

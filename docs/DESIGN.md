@@ -87,7 +87,11 @@ function refresh()              // re-poll now
 3. No writes anywhere except the clipboard on explicit Enter.
 4. Memory text rendered with `textFormat: Text.PlainText`. The briefing body is the single `MarkdownText` surface and is treated as untrusted, because the engine assembles it from memory content: `sanitizeBriefingMarkdown` escapes `<`, `[`, and `]` on the verbatim path (killing inline HTML, autolinks, images, and link syntax while leaving headings, emphasis, lists, and code spans), and `escapeMarkdown` renders section items fully inert. No memory content can inject markup or cause a remote fetch.
 5. Responses are bounded before parsing (`maxResponseChars`, `maxMemoriesParsed`, `maxBriefingChars`) so a hostile or broken engine cannot stall the shell's GUI thread.
-6. The connection identity used for change detection is an `Qt.md5` digest, not a stored copy of the token.
+6. The connection identity used for change detection is a `Qt.md5` digest, not a stored copy of the token.
+7. The bearer token is released only to an `https://` or loopback `daemonUrl`; plaintext-remote requires the explicit `allowInsecureToken` opt-in.
+8. `remnicCommand` is accepted only as a bare name or an absolute path without `..`; anything else falls back to the default rather than being executed.
+9. Every daemon-supplied string that reaches text layout is length-clamped (`maxSummaryChars`, badge/tag `clampLabel`), the tag list is count-capped, and the briefing is bounded by characters *and* lines.
+10. Demo rows are gated inside `loadDemo()` and marked by `showingDemo`, so bundled sample data can never render without the DEMO badge.
 
 ## 6. Settings (final; supersedes REQUIREMENTS §5 draft)
 

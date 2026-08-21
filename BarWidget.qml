@@ -21,8 +21,10 @@ Item {
   readonly property string fontFamily: root.bar && root.bar.fontFamily ? root.bar.fontFamily : Style.font.family
 
   readonly property string countLabel: client.todayCount > 99 ? "99+" : String(client.todayCount)
-  readonly property bool showDot: client.mode === "offline" || (client.mode === "demo" && root.vertical)
-  readonly property bool showBadge: client.mode === "demo" && !root.vertical
+  // The demo mark follows the data, not the mode, so a fabricated count can
+  // never render unbadged.
+  readonly property bool showDot: client.mode === "offline" || (client.showingDemo && root.vertical)
+  readonly property bool showBadge: client.showingDemo && !root.vertical
   readonly property string tooltipLabel: "Remnic Recall \u00b7 " + (client.mode === "offline"
     ? client.healthLine
     : root.countLabel + " today \u00b7 " + client.healthLine)
@@ -153,10 +155,9 @@ Item {
     var payload = { tab: tab }
     var anchor = anchorInfo()
     if (anchor !== null) payload.anchor = anchor
-    // bar.run hands this string to a shell and the payload is single-quoted
-    // there, so a stray apostrophe would end the quoting. Nothing that can
-    // legitimately appear in the payload contains one.
-    var json = JSON.stringify(payload).replace(/'/g, "")
-    root.bar.run("omarchy-shell shell toggle io.github.joshuaswarren.remnic '" + json + "'")
+    // Quote through the host's own helper rather than stripping characters:
+    // it escapes embedded quotes correctly, so the payload survives intact.
+    root.bar.run("omarchy-shell shell toggle io.github.joshuaswarren.remnic "
+      + Util.shellQuote(JSON.stringify(payload)))
   }
 }

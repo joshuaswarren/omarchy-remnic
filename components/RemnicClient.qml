@@ -33,8 +33,11 @@ QtObject {
     return "engine unreachable \u00b7 last seen " + (root.lastSeenLabel !== "" ? root.lastSeenLabel : "never")
   }
   property string namespace: ""
-  property int todayCount: 0
   property var recent: []
+  // True only while the rows on screen came from the bundled sample dataset.
+  // The DEMO badge keys off this rather than off `mode`, so fabricated content
+  // cannot render unbadged no matter how the mode resolves.
+  property bool showingDemo: false
 
   signal newMemories(int delta)
 
@@ -81,7 +84,16 @@ QtObject {
 
   readonly property string daemonUrl: String(setting("daemonUrl", "http://127.0.0.1:4318")).replace(/\/+$/, "")
   readonly property string configuredNamespace: String(setting("namespace", "")).replace(/^\s+|\s+$/g, "")
-  readonly property string remnicCommand: String(setting("remnicCommand", "remnic"))
+  // argv[0] of the one subprocess. A bare name goes through PATH; an absolute
+  // path is taken as-is. Anything else (a relative path, shell metacharacters)
+  // is a hand-edit mistake, not a feature, so fall back to the default rather
+  // than executing whatever it names.
+  readonly property string remnicCommand: {
+    var raw = String(setting("remnicCommand", "remnic")).replace(/^\s+|\s+$/g, "")
+    if (/^[A-Za-z0-9._-]+$/.test(raw)) return raw
+    if (/^\/[^\0]*$/.test(raw) && raw.indexOf("..") < 0) return raw
+    return "remnic"
+  }
   // Floors keep a hand-edited shell.json from turning the poll into a spin loop.
   readonly property int pollSeconds: positiveInt(setting("pollSeconds", 60), 60, 5)
   readonly property int recentLimit: positiveInt(setting("recentLimit", 30), 30, 1)
@@ -91,16 +103,27 @@ QtObject {
   }
   readonly property string tokenPath: expandHome(String(setting("tokenPath", "~/.remnic/tokens.json")))
   readonly property string inlineToken: String(setting("token", ""))
+  // Plaintext HTTP to a non-loopback host would put the bearer token on the
+  // wire. Remote daemons are supported, but sending the credential there is an
+  // explicit choice, not a default.
+  readonly property bool allowInsecureToken: setting("allowInsecureToken", false) === true
+  readonly property bool tokenDestinationSafe: {
+    var url = root.daemonUrl
+    if (/^https:\/\//i.test(url)) return true
+    if (/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(url)) return true
+    return root.allowInsecureToken
+  }
 
   // Read from disk, sent only as an Authorization header to `daemonUrl`, never
   // logged and never rendered.
   property string fileToken: ""
-  readonly property string authToken: inlineToken !== "" ? inlineToken : fileToken
+  readonly property string resolvedToken: inlineToken !== "" ? inlineToken : fileToken
+  readonly property string authToken: tokenDestinationSafe ? resolvedToken : ""
 
   // Presence, for `auto` mode. A daemon that answers at all — including 401, or
   // 503 while it warms — proves the engine is installed, and so does a resolved
   // token. A machine with neither has no Remnic, so it gets the demo dataset.
-  readonly property bool enginePresent: everResponded || authToken !== ""
+  readonly property bool enginePresent: everResponded || resolvedToken !== ""
 
   // Change-detection identity for the current connection. The token is hashed,
   // not stored: this value only has to change when the connection changes, and
@@ -127,6 +150,17 @@ QtObject {
   // post-escape string, since escaping can nearly double its length and the
   // markdown is parsed and laid out synchronously on the GUI thread.
   readonly property int maxBriefingChars: 120000
+  readonly property int maxBriefingLines: 2000
+  // A cooperating daemon's preview is ~180 chars. Bound it anyway: this string
+  // goes straight into GUI-thread text layout and onto the clipboard.
+  readonly property int maxSummaryChars: 2000
+  readonly property int maxTokenFileChars: 65536
+
+  // Shared bound for any daemon-supplied string that reaches the UI.
+  function clampText(value, limit) {
+    var text = String(value === undefined || value === null ? "" : value)
+    return text.length > limit ? text.substring(0, limit) + "\u2026" : text
+  }
   readonly property var connectorTags: [
     "claude-code", "codex", "omp", "cursor", "openclaw", "limitless", "bee", "omi"
   ]
@@ -194,6 +228,8 @@ QtObject {
       function(doc) {
         root.memoriesTimeout.stop()
         root.memoriesRequest = null
+        // Live rows replace any sample rows, so the DEMO badge drops with them.
+        root.showingDemo = false
         root.applyMemories(doc)
       },
       function() {
@@ -286,7 +322,7 @@ QtObject {
     }
     return {
       id: String(item.id || ""),
-      summary: String(item.preview || ""),
+      summary: clampText(item.preview, maxSummaryChars),
       source: source !== "" ? source : (category !== "" ? category : "memory"),
       created: String(item.created || ""),
       tags: tags,
@@ -500,6 +536,10 @@ QtObject {
     if (markdown === "") return unavailable
     // Escaping can nearly double the string, so bound the rendered result too.
     if (markdown.length > maxBriefingChars) markdown = markdown.substring(0, maxBriefingChars)
+    // Characters are not the only cost: thousands of block elements lay out
+    // synchronously even when the text is short.
+    var lines = markdown.split("\n")
+    if (lines.length > maxBriefingLines) markdown = lines.slice(0, maxBriefingLines).join("\n")
     return { markdown: markdown, generatedAt: generatedAt, available: true }
   }
 
@@ -507,9 +547,15 @@ QtObject {
   // Applied once per dataset load: the simulated capture below advances
   // `todayCount` past what the file says, and a re-apply on every failed poll
   // would snap it back.
+  // The mode test lives here so every call site inherits it: fabricated rows
+  // must never reach the UI while the engine is real, or the panel would show
+  // invented memories with no DEMO badge.
   function loadDemo() {
+    if (demoSetting === "off") return
+    if (demoSetting !== "on" && enginePresent) return
     if (!demoData.loaded || demoApplied) return
     demoApplied = true
+    showingDemo = true
     applyMemories({ memories: demoData.memories, namespace: demoData.namespace })
   }
 
@@ -616,8 +662,12 @@ QtObject {
   // entry that carries a token in whichever shape turned up.
   function applyTokenFile(raw) {
     var token = ""
+    var text = String(raw || "")
+    // The path is user-configured; a huge or binary file must not be parsed on
+    // the GUI thread just because FileView happily read it.
+    if (text.length > maxTokenFileChars) { fileToken = ""; return }
     try {
-      var doc = JSON.parse(String(raw || ""))
+      var doc = JSON.parse(text)
       var list = null
       if (doc && Array.isArray(doc.tokens)) list = doc.tokens
       else if (Array.isArray(doc)) list = doc
