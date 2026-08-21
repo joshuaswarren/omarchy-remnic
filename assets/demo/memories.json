@@ -1,0 +1,354 @@
+[
+  {
+    "id": "decision-1787326800000-e2r2",
+    "path": "/home/dev/.remnic/memory/local/decisions/2026-08-21/decision-1787326800000-e2r2.md",
+    "category": "decision",
+    "status": "active",
+    "created": "2026-08-21T15:40:00.000Z",
+    "updated": "2026-08-21T15:40:00.000Z",
+    "tags": [
+      "hyprland",
+      "omarchy",
+      "claude-code",
+      "rice"
+    ],
+    "preview": "Switched the ultrawide to Hyprland's dwindle layout instead of master. Master pinned the editor to a 2560px half and wasted the outer third; dwindle splits three ways cleanly."
+  },
+  {
+    "id": "correction-1787325720000-9tql",
+    "path": "/home/dev/.remnic/memory/local/corrections/2026-08-21/correction-1787325720000-9tql.md",
+    "category": "correction",
+    "status": "active",
+    "created": "2026-08-21T15:22:00.000Z",
+    "updated": "2026-08-21T15:22:00.000Z",
+    "tags": [
+      "postgres",
+      "migrations",
+      "omp",
+      "lesson"
+    ],
+    "preview": "Wrong earlier: the migration was not slow because of the index. CREATE INDEX without CONCURRENTLY held an ACCESS EXCLUSIVE lock for 40s on a live table. Always CONCURRENTLY."
+  },
+  {
+    "id": "fact-1787323980000-r0vl",
+    "path": "/home/dev/.remnic/memory/local/facts/2026-08-21/fact-1787323980000-r0vl.md",
+    "category": "fact",
+    "status": "active",
+    "created": "2026-08-21T14:53:00.000Z",
+    "updated": "2026-08-21T14:53:00.000Z",
+    "tags": [
+      "quickshell",
+      "qml",
+      "codex"
+    ],
+    "preview": "Quickshell reloads a plugin's QML on file change but keeps the old FileView watchers alive until the shell restarts. Editing a watched path mid-session fires handlers twice."
+  },
+  {
+    "id": "preference-1787321100000-g5w1",
+    "path": "/home/dev/.remnic/memory/local/preferences/2026-08-21/preference-1787321100000-g5w1.md",
+    "category": "preference",
+    "status": "active",
+    "created": "2026-08-21T14:05:00.000Z",
+    "updated": "2026-08-21T14:05:00.000Z",
+    "tags": [
+      "git",
+      "workflow",
+      "claude-code"
+    ],
+    "preview": "Prefers stacked branches over one wide PR: one branch per layer (schema, service, UI), each reviewed on its own criteria. Never squash the stack before review."
+  },
+  {
+    "id": "fact-1787317200000-h4uj",
+    "path": "/home/dev/.remnic/memory/local/facts/2026-08-21/fact-1787317200000-h4uj.md",
+    "category": "fact",
+    "status": "active",
+    "created": "2026-08-21T13:00:00.000Z",
+    "updated": "2026-08-21T13:00:00.000Z",
+    "tags": [
+      "standup",
+      "omp",
+      "roadmap"
+    ],
+    "preview": "Standup: the recall panel ships before the briefing tab. Demo mode is the contest gate, so it has to work on a machine with nothing installed."
+  },
+  {
+    "id": "decision-1787263800000-38jy",
+    "path": "/home/dev/.remnic/memory/local/decisions/2026-08-20/decision-1787263800000-38jy.md",
+    "category": "decision",
+    "status": "active",
+    "created": "2026-08-20T22:10:00.000Z",
+    "updated": "2026-08-20T22:10:00.000Z",
+    "tags": [
+      "omarchy",
+      "theme",
+      "rice"
+    ],
+    "preview": "Settling on Tokyo Night over Catppuccin Mocha for the daily driver. Mocha's low-contrast comments disappear on the OLED at night; Tokyo Night keeps them legible at 40% brightness."
+  },
+  {
+    "id": "fact-1787254500000-gedq",
+    "path": "/home/dev/.remnic/memory/local/facts/2026-08-20/fact-1787254500000-gedq.md",
+    "category": "fact",
+    "status": "active",
+    "created": "2026-08-20T19:35:00.000Z",
+    "updated": "2026-08-20T19:35:00.000Z",
+    "tags": [
+      "proxmox",
+      "zfs",
+      "homelab"
+    ],
+    "preview": "The NVMe special vdev is what made the backup pool usable: metadata-heavy rsync went from 4 hours to 22 minutes. Pool is otherwise spinning rust in a mirror of mirrors."
+  },
+  {
+    "id": "preference-1787244480000-budf",
+    "path": "/home/dev/.remnic/memory/local/preferences/2026-08-20/preference-1787244480000-budf.md",
+    "category": "preference",
+    "status": "active",
+    "created": "2026-08-20T16:48:00.000Z",
+    "updated": "2026-08-20T16:48:00.000Z",
+    "tags": [
+      "testing",
+      "codex",
+      "python"
+    ],
+    "preview": "Wants property-based tests for anything that parses. Hypothesis over hand-written cases for the config loader; example tests only for the specific bugs already hit."
+  },
+  {
+    "id": "correction-1787228400000-lnt9",
+    "path": "/home/dev/.remnic/memory/local/corrections/2026-08-20/correction-1787228400000-lnt9.md",
+    "category": "correction",
+    "status": "active",
+    "created": "2026-08-20T12:20:00.000Z",
+    "updated": "2026-08-20T12:20:00.000Z",
+    "tags": [
+      "docker",
+      "networking",
+      "claude-code"
+    ],
+    "preview": "Not a DNS problem. The container could not reach the daemon because host networking was off and 127.0.0.1 resolved inside the namespace. Used host.docker.internal instead."
+  },
+  {
+    "id": "fact-1787216700000-hd7l",
+    "path": "/home/dev/.remnic/memory/local/facts/2026-08-20/fact-1787216700000-hd7l.md",
+    "category": "fact",
+    "status": "active",
+    "created": "2026-08-20T09:05:00.000Z",
+    "updated": "2026-08-20T09:05:00.000Z",
+    "tags": [
+      "limitless",
+      "wearable",
+      "meeting"
+    ],
+    "preview": "From the morning walk transcript: agreed with Sam to freeze the plugin API before the contest deadline, and to treat anything after that as v2."
+  },
+  {
+    "id": "decision-1787175000000-08cy",
+    "path": "/home/dev/.remnic/memory/local/decisions/2026-08-19/decision-1787175000000-08cy.md",
+    "category": "decision",
+    "status": "active",
+    "created": "2026-08-19T21:30:00.000Z",
+    "updated": "2026-08-19T21:30:00.000Z",
+    "tags": [
+      "architecture",
+      "omp",
+      "remnic"
+    ],
+    "preview": "Reads go over the local HTTP daemon, not per-call CLI spawns. A node process per keystroke costs about a second of cold start, and browse only exists on the daemon anyway."
+  },
+  {
+    "id": "fact-1787159520000-z5rd",
+    "path": "/home/dev/.remnic/memory/local/facts/2026-08-19/fact-1787159520000-z5rd.md",
+    "category": "fact",
+    "status": "active",
+    "created": "2026-08-19T17:12:00.000Z",
+    "updated": "2026-08-19T17:12:00.000Z",
+    "tags": [
+      "hyprland",
+      "waybar",
+      "rice"
+    ],
+    "preview": "Hyprland's decoration:rounding is the single source of truth for corner radius across the rice. The shell reads it with hyprctl at startup instead of hardcoding a radius."
+  },
+  {
+    "id": "preference-1787150640000-bq7b",
+    "path": "/home/dev/.remnic/memory/local/preferences/2026-08-19/preference-1787150640000-bq7b.md",
+    "category": "preference",
+    "status": "active",
+    "created": "2026-08-19T14:44:00.000Z",
+    "updated": "2026-08-19T14:44:00.000Z",
+    "tags": [
+      "editor",
+      "neovim",
+      "claude-code"
+    ],
+    "preview": "Keeps LSP diagnostics on the statusline, never as virtual text. Inline diagnostics push code around while typing and make the diff hard to read."
+  },
+  {
+    "id": "fact-1787133720000-9hre",
+    "path": "/home/dev/.remnic/memory/local/facts/2026-08-19/fact-1787133720000-9hre.md",
+    "category": "fact",
+    "status": "active",
+    "created": "2026-08-19T10:02:00.000Z",
+    "updated": "2026-08-19T10:02:00.000Z",
+    "tags": [
+      "postgres",
+      "pgbouncer",
+      "homelab"
+    ],
+    "preview": "pgbouncer in transaction mode breaks prepared statements for the ORM. Either session mode or disable statement caching; picked session mode since the pool is small."
+  },
+  {
+    "id": "decision-1787086500000-y5wp",
+    "path": "/home/dev/.remnic/memory/local/decisions/2026-08-18/decision-1787086500000-y5wp.md",
+    "category": "decision",
+    "status": "active",
+    "created": "2026-08-18T20:55:00.000Z",
+    "updated": "2026-08-18T20:55:00.000Z",
+    "tags": [
+      "backups",
+      "restic",
+      "homelab"
+    ],
+    "preview": "Restic to the NAS nightly and to B2 weekly, not both nightly. Weekly offsite is enough for a lab, and the B2 egress cost of a full restore test is the real constraint."
+  },
+  {
+    "id": "correction-1787067000000-np36",
+    "path": "/home/dev/.remnic/memory/local/corrections/2026-08-18/correction-1787067000000-np36.md",
+    "category": "correction",
+    "status": "active",
+    "created": "2026-08-18T15:30:00.000Z",
+    "updated": "2026-08-18T15:30:00.000Z",
+    "tags": [
+      "typescript",
+      "codex",
+      "lesson"
+    ],
+    "preview": "Earlier claim was wrong: satisfies does not narrow the inferred type, it only checks it. Needed an explicit annotation to get the union narrowed at the call site."
+  },
+  {
+    "id": "fact-1787051880000-18bm",
+    "path": "/home/dev/.remnic/memory/local/facts/2026-08-18/fact-1787051880000-18bm.md",
+    "category": "fact",
+    "status": "active",
+    "created": "2026-08-18T11:18:00.000Z",
+    "updated": "2026-08-18T11:18:00.000Z",
+    "tags": [
+      "wayland",
+      "screenshare",
+      "hyprland"
+    ],
+    "preview": "Screen share needs xdg-desktop-portal-hyprland running, and the Chromium flag for the PipeWire capturer. Without the portal the picker opens and lists nothing."
+  },
+  {
+    "id": "preference-1786995600000-ps2l",
+    "path": "/home/dev/.remnic/memory/local/preferences/2026-08-17/preference-1786995600000-ps2l.md",
+    "category": "preference",
+    "status": "active",
+    "created": "2026-08-17T19:40:00.000Z",
+    "updated": "2026-08-17T19:40:00.000Z",
+    "tags": [
+      "writing",
+      "docs",
+      "omp"
+    ],
+    "preview": "Wants design docs to pin decisions, not survey options. If a doc says 'candidate approaches' it is not done; each open question needs a chosen answer and the reason."
+  },
+  {
+    "id": "fact-1786973100000-jvs6",
+    "path": "/home/dev/.remnic/memory/local/facts/2026-08-17/fact-1786973100000-jvs6.md",
+    "category": "fact",
+    "status": "active",
+    "created": "2026-08-17T13:25:00.000Z",
+    "updated": "2026-08-17T13:25:00.000Z",
+    "tags": [
+      "nerd-fonts",
+      "qml",
+      "rice"
+    ],
+    "preview": "Nerd Font glyphs render in QML only when the family resolves through the monospace fontconfig alias. Naming the concrete family breaks on font switch."
+  },
+  {
+    "id": "decision-1786960200000-6tp3",
+    "path": "/home/dev/.remnic/memory/local/decisions/2026-08-17/decision-1786960200000-6tp3.md",
+    "category": "decision",
+    "status": "active",
+    "created": "2026-08-17T09:50:00.000Z",
+    "updated": "2026-08-17T09:50:00.000Z",
+    "tags": [
+      "ci",
+      "github",
+      "workflow"
+    ],
+    "preview": "Dropped the matrix build to a single Linux runner. macOS and Windows jobs caught nothing in six months and ate most of the CI minutes."
+  },
+  {
+    "id": "fact-1786904100000-yugc",
+    "path": "/home/dev/.remnic/memory/local/facts/2026-08-16/fact-1786904100000-yugc.md",
+    "category": "fact",
+    "status": "active",
+    "created": "2026-08-16T18:15:00.000Z",
+    "updated": "2026-08-16T18:15:00.000Z",
+    "tags": [
+      "bee",
+      "wearable",
+      "family"
+    ],
+    "preview": "Anna's OT appointment moved to Thursdays at 4pm through the end of the term. Conflicts with the standing infra window, so that moves to Friday."
+  },
+  {
+    "id": "correction-1786880400000-gt4k",
+    "path": "/home/dev/.remnic/memory/local/corrections/2026-08-16/correction-1786880400000-gt4k.md",
+    "category": "correction",
+    "status": "active",
+    "created": "2026-08-16T11:40:00.000Z",
+    "updated": "2026-08-16T11:40:00.000Z",
+    "tags": [
+      "zsh",
+      "claude-code",
+      "lesson"
+    ],
+    "preview": "The alias was not shadowed by a function. It was defined in .zshrc after the plugin manager loaded, and the plugin re-exported the same name later."
+  },
+  {
+    "id": "preference-1786824300000-lamp",
+    "path": "/home/dev/.remnic/memory/local/preferences/2026-08-15/preference-1786824300000-lamp.md",
+    "category": "preference",
+    "status": "active",
+    "created": "2026-08-15T20:05:00.000Z",
+    "updated": "2026-08-15T20:05:00.000Z",
+    "tags": [
+      "python",
+      "tooling",
+      "codex"
+    ],
+    "preview": "uv for everything new, never poetry. Wants the lockfile committed and the venv in .venv at the repo root so the editor finds it without configuration."
+  },
+  {
+    "id": "fact-1786789800000-symg",
+    "path": "/home/dev/.remnic/memory/local/facts/2026-08-15/fact-1786789800000-symg.md",
+    "category": "fact",
+    "status": "active",
+    "created": "2026-08-15T10:30:00.000Z",
+    "updated": "2026-08-15T10:30:00.000Z",
+    "tags": [
+      "networking",
+      "vlan",
+      "homelab"
+    ],
+    "preview": "The lab runs three VLANs: 10 for trusted, 20 for IoT, 30 for guests. The NAS lives on 10 and is reachable from 20 only on the media ports."
+  },
+  {
+    "id": "decision-1786726500000-69ed",
+    "path": "/home/dev/.remnic/memory/local/decisions/2026-08-14/decision-1786726500000-69ed.md",
+    "category": "decision",
+    "status": "active",
+    "created": "2026-08-14T16:55:00.000Z",
+    "updated": "2026-08-14T16:55:00.000Z",
+    "tags": [
+      "remnic",
+      "namespaces",
+      "omp"
+    ],
+    "preview": "One namespace per project, plus a generalist namespace for anything that spans them. Cross-project recall was returning too much noise from a single shared store."
+  }
+]
