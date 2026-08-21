@@ -102,6 +102,13 @@ QtObject {
   // token. A machine with neither has no Remnic, so it gets the demo dataset.
   readonly property bool enginePresent: everResponded || authToken !== ""
 
+  // Change-detection identity for the current connection. The token is hashed,
+  // not stored: this value only has to change when the connection changes, and
+  // never has to be read back.
+  function hashConnection() {
+    return Qt.md5(daemonUrl + "\u0000" + tokenPath + "\u0000" + inlineToken)
+  }
+
   function expandHome(path) {
     var text = String(path || "")
     if (text.charAt(0) !== "~") return text
@@ -111,6 +118,12 @@ QtObject {
   // ------------------------------------------------------------ internal state
   readonly property int searchLimit: 20
   readonly property int browseLimit: 100
+  // A cooperating daemon answers in tens of KB. These bound what a
+  // misbehaving or hostile one can make the shell chew on: `limit` is only a
+  // request, so the array is capped independently of the byte cap.
+  readonly property int maxResponseChars: 4000000
+  readonly property int maxMemoriesParsed: 500
+  readonly property int maxBriefingChars: 400000
   readonly property var connectorTags: [
     "claude-code", "codex", "omp", "cursor", "openclaw", "limitless", "bee", "omi"
   ]
@@ -122,7 +135,8 @@ QtObject {
   // so a slow first probe reads as "connecting", never as a false "offline".
   property bool probeSettled: false
   // Connection identity at the last settings settle; presence evidence
-  // (`everResponded`) resets only when this changes.
+  // (`everResponded`) resets only when this changes. Hashed, so the secret
+  // is not held a further time just for change detection.
   property string connectionFingerprint: ""
   property bool hasCounted: false
   property bool demoApplied: false
@@ -225,7 +239,9 @@ QtObject {
   // `{memories:[…]}` envelope the daemon returns, so the mapping, the today
   // cutoff, and the pulse delta each have exactly one implementation.
   function applyMemories(doc) {
-    var list = (doc && Array.isArray(doc.memories)) ? doc.memories : []
+    var all = (doc && Array.isArray(doc.memories)) ? doc.memories : []
+    // `limit` is a request, not a guarantee; cap what we walk regardless.
+    var list = all.length > maxMemoriesParsed ? all.slice(0, maxMemoriesParsed) : all
     var reported = doc ? String(doc.namespace || "") : ""
     if (configuredNamespace !== "") namespace = configuredNamespace
     else if (reported !== "") namespace = reported
@@ -296,9 +312,14 @@ QtObject {
       // 401 and 503 included, proves something is listening.
       if (request.status > 0) root.everResponded = true
       if (request.status !== 200) { onFail(); return }
+      // JSON.parse runs on the GUI thread, so an oversized body would stall
+      // or exhaust the whole shell. Bound it before parsing: the real
+      // responses here are tens of KB.
+      var body = request.responseText
+      if (typeof body !== "string" || body.length > root.maxResponseChars) { onFail(); return }
       var doc = null
       try {
-        doc = JSON.parse(request.responseText)
+        doc = JSON.parse(body)
       } catch (parseError) {
         onFail()
         return
@@ -432,6 +453,19 @@ QtObject {
     out.push("")
   }
 
+  // The engine writes the briefing prose, but it assembles it from memory
+  // content, so the whole document is untrusted. Escape only the constructs
+  // that fetch (images), embed markup (inline HTML), or forge a link; leave
+  // headings, emphasis, lists, and code spans intact so a real briefing still
+  // reads like one. Backslash goes first or it would re-escape the others.
+  function sanitizeBriefingMarkdown(text) {
+    return String(text)
+      .replace(/\\/g, "\\\\")
+      .replace(/</g, "\\<")
+      .replace(/\[/g, "\\[")
+      .replace(/\]/g, "\\]")
+  }
+
   function parseBriefing(raw, exitCode) {
     var unavailable = { markdown: "", generatedAt: "", available: false }
     if (exitCode !== 0) return unavailable
@@ -439,8 +473,10 @@ QtObject {
     if (doc === null || typeof doc !== "object") return unavailable
     var node = (doc.briefing && typeof doc.briefing === "object") ? doc.briefing : doc
     var generatedAt = firstString([node.generatedAt, node.generated_at, node.createdAt, node.created])
-    var markdown = firstString([node.markdown, node.text, node.content, node.body])
+    var markdown = sanitizeBriefingMarkdown(firstString([node.markdown, node.text, node.content, node.body]))
     if (markdown === "" && node.sections && typeof node.sections === "object") {
+      // Section items are plain sentences, not markdown; escapeMarkdown already
+      // renders them inert, so this path is not sanitized again.
       var lines = []
       sectionLines(lines, "Active threads", node.sections.activeThreads)
       sectionLines(lines, "Recent entities", node.sections.recentEntities)
@@ -451,9 +487,6 @@ QtObject {
         : "Nothing to report for this window \u2014 the engine produced an empty briefing."
     }
     if (markdown === "") return unavailable
-    // Image syntax would make the renderer fetch remote URLs (a beacon
-    // channel for hostile memory content); neutralize it everywhere.
-    markdown = markdown.replace(/!\[/g, "!\\[")
     return { markdown: markdown, generatedAt: generatedAt, available: true }
   }
 
@@ -505,7 +538,7 @@ QtObject {
       // shell.json edit: a daemonUrl/token change must be able to move
       // between demo and offline, but an unrelated bar tweak must not flip
       // an offline machine onto demo data.
-      var fingerprint = root.daemonUrl + "\u0000" + root.tokenPath + "\u0000" + root.inlineToken
+      var fingerprint = root.hashConnection()
       if (fingerprint !== root.connectionFingerprint) {
         root.connectionFingerprint = fingerprint
         root.everResponded = false
@@ -595,7 +628,8 @@ QtObject {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        root.briefingStdout = text
+        // A spewing binary must not balloon the shell before the timeout.
+        root.briefingStdout = text.length > root.maxBriefingChars ? "" : text
         root.briefingStreamDone = true
         root.maybeResolveBriefing()
       }
@@ -608,7 +642,7 @@ QtObject {
   }
 
   Component.onCompleted: {
-    connectionFingerprint = daemonUrl + "\u0000" + tokenPath + "\u0000" + inlineToken
+    connectionFingerprint = hashConnection()
     poll()
   }
 }

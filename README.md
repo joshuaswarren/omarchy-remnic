@@ -88,11 +88,14 @@ The payload takes `tab` (`recall` | `recent` | `briefing`) and an optional `quer
 
 Memory content is sensitive. This plugin is read-only by contract:
 
-- All live reads go to Remnic's existing daemon HTTP API (`/engram/v1/health`, `/engram/v1/memories`); no mutating endpoint is ever called.
-- Exactly two subprocess call sites exist: `remnic briefing --format json` (fixed argv, no shell) and `wl-copy` (memory text via stdin, only on explicit Enter). Audit them with `grep -n "Process {" -r .`.
-- The bearer token is read from disk, sent only as an `Authorization` header to `daemonUrl`, never logged, never rendered.
-- Memory text renders as plain text (`Text.PlainText`). The briefing is the one markdown surface: memory-derived section items are markdown-escaped and image syntax is neutralized before rendering, so memory content cannot inject rich text or trigger remote fetches.
+- All live reads go to Remnic's existing daemon HTTP API (`GET /engram/v1/health`, `GET /engram/v1/memories`); no mutating endpoint is ever called.
+- The plugin itself spawns exactly two processes: `remnic briefing --format json` (fixed argv, no shell) and `wl-copy` (memory text via stdin, never in argv, only on explicit Enter). Audit them with `grep -n "Process {" -r .`. Clicking the chip additionally asks the *host* to run `omarchy-shell shell toggle …` through Omarchy's own `bar.run`, which is how every third-party widget opens its panel.
+- The bearer token is read from disk, sent only as an `Authorization` header to `daemonUrl`, never logged, never rendered, never placed in a URL, an argv, or the clipboard.
+- Memory text renders as plain text (`Text.PlainText`). The briefing is the one markdown surface, and it is treated as untrusted because the engine assembles it from memory content: inline HTML, image syntax, and link syntax are all neutralized before rendering, so memory content cannot inject markup or cause a remote fetch. Headings, emphasis, and lists survive.
+- Responses are size-capped before parsing and the memory array is length-capped, so a misbehaving daemon cannot stall or exhaust the shell process.
 - No network access besides `daemonUrl`. No telemetry. Nothing written to disk.
+
+Two settings deserve care because they point the plugin at things you choose: `daemonUrl` is where the bearer token gets sent (use loopback, or HTTPS/a trusted network for a remote daemon), and `tokenPath` is read whole into the shell process, so point it at a token file rather than something large.
 
 ## Development
 

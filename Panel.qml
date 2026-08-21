@@ -1012,9 +1012,10 @@ Item {
 
                   width: briefingFlick.width
                   text: root.briefingMarkdown
-                  // The briefing is engine-generated prose, not memory content,
-                  // so rendering its markdown carries no injection surface.
-                  // Memory rows stay on PlainText.
+                  // The engine writes this prose but assembles it from memory
+                  // content, so it is untrusted: RemnicClient sanitizes every
+                  // briefing (inline HTML, images, link syntax) before it gets
+                  // here. Memory rows stay on PlainText.
                   textFormat: Text.MarkdownText
                   color: Color.popups.text
                   font.family: Style.font.family

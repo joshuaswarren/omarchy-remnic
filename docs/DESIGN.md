@@ -85,7 +85,9 @@ function refresh()              // re-poll now
    - clipboard copy in the panel, argv `["wl-copy"]` with the memory text written to stdin (never in argv), spawned only on explicit Enter.
 2. Token read from disk is never logged, never rendered, sent only as `Authorization` header to `daemonUrl`.
 3. No writes anywhere except the clipboard on explicit Enter.
-4. Memory text rendered with `textFormat: Text.PlainText`. The briefing body is the single `MarkdownText` surface; memory-derived section items are markdown-escaped and `![` image syntax is neutralized in every briefing before render (no rich-text injection, no remote-image beacon).
+4. Memory text rendered with `textFormat: Text.PlainText`. The briefing body is the single `MarkdownText` surface and is treated as untrusted, because the engine assembles it from memory content: `sanitizeBriefingMarkdown` escapes `<`, `[`, and `]` on the verbatim path (killing inline HTML, autolinks, images, and link syntax while leaving headings, emphasis, lists, and code spans), and `escapeMarkdown` renders section items fully inert. No memory content can inject markup or cause a remote fetch.
+5. Responses are bounded before parsing (`maxResponseChars`, `maxMemoriesParsed`, `maxBriefingChars`) so a hostile or broken engine cannot stall the shell's GUI thread.
+6. The connection identity used for change detection is an `Qt.md5` digest, not a stored copy of the token.
 
 ## 6. Settings (final; supersedes REQUIREMENTS §5 draft)
 
