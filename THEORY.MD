@@ -1,15 +1,18 @@
-# Operating theory — Remnic Recall implementation
+# Operating theory — Remnic Recall
 
-## What we are building and why
-docs/REQUIREMENTS.md is a complete spec (v0.1.0) for a read-only Omarchy 4 Quickshell plugin: a bar chip (today's memory count, pulse, health) + a 3-tab panel (Recall search, Recent, Briefing), backed by the Remnic CLI, with a bundled demo dataset so the full UI works with no engine installed. The spec's acceptance criteria A1–A8 are the exit predicate.
+## What this is
+A read-only Omarchy 4 Quickshell plugin: bar chip (today's memory count, pulse, health) + 3-tab panel (Recall search, Recent, Briefing) over the Remnic daemon HTTP API, with a bundled demo dataset. docs/REQUIREMENTS.md (A1–A8) is the acceptance contract; docs/DESIGN.md pins the as-built decisions.
 
-## Strategy
-Orchestrator (this session) owns design, integration, verification. Implementation is delegated to sub-agent sessions. Sequencing follows the spec's milestones M1–M4, but the load-bearing early decision is the **engine adapter contract**: one QML/JS boundary that every UI piece consumes, with three interchangeable sources (live CLI, demo dataset, offline). Freeze that contract before UI fan-out so bar chip and panel can be built in parallel.
-
-The domain model: a single `EngineState` (mode: live|demo|offline; health; todayCount) plus three read-only query surfaces (search(query) → [Memory], recent(limit) → [Memory], briefing() → {text, generatedAt}). `Memory {id, text, summary, source, timestamp}`. All subprocess calls go through one allowlisted spawn site (A6).
+## Load-bearing decisions
+- **HTTP, not CLI, for live reads.** The CLI is itself an HTTP client, adds node cold-start per call, and has no recent-memories command. Browse (`GET /engram/v1/memories`) serves Recent, the today count, and search (`?q=`) in one surface. `POST /memories/search` returned zero for every probe on a live store — avoided.
+- **One engine boundary.** `components/RemnicClient.qml` owns modes (`live|demo|offline|connecting`), polling, auth, and the only two subprocess sites (briefing, wl-copy in the panel). Demo data replays through the same mapping pipeline as live data, so shapes cannot drift.
+- **Modes are evidence-based.** `connecting` until a probe under the *current settings generation* resolves (the first probe against a 100k-memory store takes ~8 s; claiming OFFLINE during it was a lie users would see on every open). Presence evidence (`everResponded`, tokens) resets when settings change.
+- **Dual-kind pattern B** (as ytmini): standalone panel summoned by `omarchy-shell shell toggle <id> '<json>'`, chip passes an anchor in the payload; panel replicates KeyboardPanel's focus-prime (Exclusive → OnDemand) for type-immediately behavior.
 
 ## Verification theory
-The plugin only proves itself on a real Omarchy surface: rsync repo → esper ~/.config/omarchy/plugins/, hot-reload, drive via IPC, capture screenshots/recordings per state (live, demo, offline, both bar orientations, ≥2 themes). `omarchy plugin validate` is necessary but not sufficient.
+Everything was proven on esper against the real shell: hot-reload deploys, IPC deep-links, wtype-driven keyboard flows, grim captures of every state (live, demo, offline, connecting, both bar orientations, two themes), clipboard read-back via wl-paste. `omarchy plugin validate` passes. The demo GIF and screenshots in docs/screenshots are the durable evidence.
 
-## Current status
-Recon in flight: Omarchy plugin contract (from esper's installed shell source) and Remnic CLI JSON surface (from ~/src/remnic). Key unknown: the real user-facing Remnic CLI command name and its JSON flags — the spec left these "to be pinned at implementation time".
+## Known upstream findings (not plugin defects)
+- Remnic daemon browse served stale results on the central deployment (memory_store succeeded but never appeared; total frozen) — cache version not bumped by access-layer writes.
+- `remnic briefing --format json` interleaves log lines with the JSON payload on stdout, and its JSON carries no markdown field — the plugin extracts the trailing JSON document and renders `sections` itself.
+- Quickshell hot reload keeps stale component instances (entry points reload; `components/` edits need `omarchy restart shell`).

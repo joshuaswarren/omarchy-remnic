@@ -1,6 +1,6 @@
 # Remnic Recall — Requirements
 
-Status: **specification** (v0.1.0, nothing implemented yet)
+Status: **implemented** (v0.1.0; kept as the binding spec — see [DESIGN.md](DESIGN.md) for the as-built decisions)
 Target: Omarchy 4 / Quattro shell (Quickshell plugin API)
 Plugin ID: `io.github.joshuaswarren.remnic`
 Kinds: `bar-widget` + `panel`
