@@ -455,6 +455,9 @@ QtObject {
     interval: 150
     repeat: false
     onTriggered: {
+      // Presence evidence belongs to the current settings generation: a
+      // daemonUrl edit must be able to move between demo and offline.
+      root.everResponded = false
       root.probeSettled = false
       root.hasCounted = false
       root.demoApplied = false
