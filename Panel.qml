@@ -436,6 +436,8 @@ Item {
     }
 
     root.nowMs = Date.now()
+    // Guard must be live before the surface can map over a lock screen.
+    root.resolveLockService()
     root.opened = true
 
     if (payload.tab !== undefined) root.showTab(String(payload.tab || ""))
@@ -524,21 +526,26 @@ Item {
   property var lockService: null
   readonly property bool sessionLocked: root.lockService !== null && root.lockService.locked === true
 
-  Timer {
-    id: lockServiceResolve
-    interval: 1000
-    repeat: true
-    running: true
-    onTriggered: {
-      if (root.lockService !== null) {
-        lockServiceResolve.stop()
-        return
-      }
-      if (root.shell && typeof root.shell.serviceFor === "function") {
-        var service = root.shell.serviceFor("omarchy.lock")
-        if (service !== null && service !== undefined) root.lockService = service
+  // Resolve before the surface can map, not only on the timer tick: otherwise
+  // there is a window where the panel is visible and the guard is not yet live.
+  function resolveLockService() {
+    if (root.lockService !== null) return true
+    if (root.shell && typeof root.shell.serviceFor === "function") {
+      var service = root.shell.serviceFor("omarchy.lock")
+      if (service !== null && service !== undefined) {
+        root.lockService = service
+        return true
       }
     }
+    return false
+  }
+
+  Timer {
+    id: lockServiceResolve
+    interval: 250
+    repeat: true
+    running: true
+    onTriggered: if (root.resolveLockService()) lockServiceResolve.stop()
   }
 
   // ------------------------------------------------------------- focus prime

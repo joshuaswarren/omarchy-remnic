@@ -123,7 +123,10 @@ QtObject {
   // request, so the array is capped independently of the byte cap.
   readonly property int maxResponseChars: 4000000
   readonly property int maxMemoriesParsed: 500
-  readonly property int maxBriefingChars: 400000
+  // A real briefing is a few KB. Bound both the captured stdout and the
+  // post-escape string, since escaping can nearly double its length and the
+  // markdown is parsed and laid out synchronously on the GUI thread.
+  readonly property int maxBriefingChars: 120000
   readonly property var connectorTags: [
     "claude-code", "codex", "omp", "cursor", "openclaw", "limitless", "bee", "omi"
   ]
@@ -307,14 +310,22 @@ QtObject {
       // The response can land after the shell tears this object down
       // (plugin reload, panel destroy); captured ids are null by then.
       if (root === null) return
+      // Bail while the body is still arriving rather than after it is fully
+      // buffered, so an oversized response bounds allocation and not just the
+      // parse. Real responses here are tens of KB.
+      if (request.readyState === XMLHttpRequest.LOADING) {
+        var partial = request.responseText
+        if (typeof partial === "string" && partial.length > root.maxResponseChars) {
+          root.abortRequest(request)
+          onFail()
+        }
+        return
+      }
       if (request.readyState !== XMLHttpRequest.DONE) return
       // Status 0 is a transport failure (refused, DNS, abort); any real status,
       // 401 and 503 included, proves something is listening.
       if (request.status > 0) root.everResponded = true
       if (request.status !== 200) { onFail(); return }
-      // JSON.parse runs on the GUI thread, so an oversized body would stall
-      // or exhaust the whole shell. Bound it before parsing: the real
-      // responses here are tens of KB.
       var body = request.responseText
       if (typeof body !== "string" || body.length > root.maxResponseChars) { onFail(); return }
       var doc = null
@@ -487,6 +498,8 @@ QtObject {
         : "Nothing to report for this window \u2014 the engine produced an empty briefing."
     }
     if (markdown === "") return unavailable
+    // Escaping can nearly double the string, so bound the rendered result too.
+    if (markdown.length > maxBriefingChars) markdown = markdown.substring(0, maxBriefingChars)
     return { markdown: markdown, generatedAt: generatedAt, available: true }
   }
 

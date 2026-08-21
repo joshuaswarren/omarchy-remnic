@@ -24,7 +24,19 @@ Item {
 
   readonly property string summary: memory ? String(memory.summary || "") : ""
   readonly property string source: memory ? String(memory.source || "") : ""
-  readonly property var tags: memory && Array.isArray(memory.tags) ? memory.tags : []
+  readonly property var allTags: memory && Array.isArray(memory.tags) ? memory.tags : []
+  // The daemon supplies these; a pathological memory with thousands of tags
+  // would otherwise build thousands of delegates and stall the shell.
+  readonly property int maxTagsShown: 8
+  readonly property var tags: allTags.length > maxTagsShown ? allTags.slice(0, maxTagsShown) : allTags
+  readonly property int hiddenTagCount: allTags.length - tags.length
+
+  // Badge and tag strings size their own chips, so a very long one would drive
+  // the row's geometry. Clamp what is drawn; the full text lives in the summary.
+  function clampLabel(text, limit) {
+    var value = String(text)
+    return value.length > limit ? value.substring(0, limit) + "\u2026" : value
+  }
 
   // Only glyphs already shipped by first-party panels, plus the brain mark the
   // plugin uses for "a memory" everywhere else. An unpatched font renders a
@@ -102,7 +114,7 @@ Item {
           Text {
             id: sourceLabel
             anchors.centerIn: parent
-            text: root.source.toUpperCase()
+            text: root.clampLabel(root.source, 18).toUpperCase()
             textFormat: Text.PlainText
             color: root.accent
             font.family: Style.font.family
@@ -132,12 +144,21 @@ Item {
           delegate: Text {
             required property var modelData
 
-            text: "#" + String(modelData)
+            text: "#" + root.clampLabel(modelData, 24)
             textFormat: Text.PlainText
             color: Qt.darker(root.foreground, 1.35)
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
           }
+        }
+
+        Text {
+          visible: root.hiddenTagCount > 0
+          text: "+" + root.hiddenTagCount
+          textFormat: Text.PlainText
+          color: Qt.darker(root.foreground, 1.5)
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
         }
       }
     }
