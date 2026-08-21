@@ -24,7 +24,18 @@ Item {
 
   readonly property string summary: memory ? String(memory.summary || "") : ""
   readonly property string source: memory ? String(memory.source || "") : ""
-  readonly property var allTags: memory && Array.isArray(memory.tags) ? memory.tags : []
+  // A JS array nested inside an object that has crossed a `property var`
+  // boundary arrives array-LIKE (indexable, has length) but Array.isArray() is
+  // false for it, so copy by length instead of testing for a real Array —
+  // testing silently emptied the tag row.
+  function toArray(value) {
+    var out = []
+    if (!value || value.length === undefined) return out
+    for (var i = 0; i < value.length; i++) out.push(value[i])
+    return out
+  }
+
+  readonly property var allTags: toArray(memory ? memory.tags : null)
   // The daemon supplies these; a pathological memory with thousands of tags
   // would otherwise build thousands of delegates and stall the shell.
   readonly property int maxTagsShown: 8

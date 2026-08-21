@@ -924,13 +924,13 @@ Item {
                   // and left delegates drawn on top of each other.
                   populate: Transition {
                     SequentialAnimation {
-                      PauseAnimation { duration: Math.min(ViewTransition.index * 30, 180) }
+                      PauseAnimation { duration: Math.max(0, Math.min((ViewTransition.index || 0) * 30, 180)) }
                       NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 140; easing.type: Easing.OutCubic }
                     }
                   }
                   add: Transition {
                     SequentialAnimation {
-                      PauseAnimation { duration: Math.min(ViewTransition.index * 30, 180) }
+                      PauseAnimation { duration: Math.max(0, Math.min((ViewTransition.index || 0) * 30, 180)) }
                       NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 140; easing.type: Easing.OutCubic }
                     }
                   }
