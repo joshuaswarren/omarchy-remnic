@@ -97,11 +97,9 @@ QtObject {
       if (!item) continue
       out.push({
         id: String(item.id || ""),
-        path: String(item.path || ""),
         category: String(item.category || ""),
         status: String(item.status || "active"),
         created: shiftStamp(item.created, shift),
-        updated: shiftStamp(item.updated !== undefined ? item.updated : item.created, shift),
         tags: Array.isArray(item.tags) ? item.tags : [],
         preview: String(item.preview || "")
       })

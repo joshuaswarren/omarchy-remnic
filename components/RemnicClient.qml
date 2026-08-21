@@ -64,8 +64,7 @@ QtObject {
   }
 
   function refresh() {
-    demoApplied = false
-    demoData.reload()
+    // Demo data is static; only the live surfaces have anything to re-fetch.
     poll()
   }
 
@@ -122,6 +121,9 @@ QtObject {
   // False until a health probe under the CURRENT settings resolves either way,
   // so a slow first probe reads as "connecting", never as a false "offline".
   property bool probeSettled: false
+  // Connection identity at the last settings settle; presence evidence
+  // (`everResponded`) resets only when this changes.
+  property string connectionFingerprint: ""
   property bool hasCounted: false
   property bool demoApplied: false
   property string qmdState: "unknown"
@@ -409,6 +411,12 @@ QtObject {
     return null
   }
 
+  // Section items come from memory content; escape them so a hostile memory
+  // cannot inject markdown into the briefing's rich-text surface.
+  function escapeMarkdown(text) {
+    return String(text).replace(/([\\`*_{}\[\]()#+!<>|~])/g, "\\$1")
+  }
+
   function sectionLines(out, title, items) {
     if (!Array.isArray(items) || items.length === 0) return
     out.push("### " + title)
@@ -419,7 +427,7 @@ QtObject {
         : (item && typeof item === "object")
           ? firstString([item.title, item.name, item.text, item.summary, item.content])
           : ""
-      if (line !== "") out.push("- " + line)
+      if (line !== "") out.push("- " + escapeMarkdown(line))
     }
     out.push("")
   }
@@ -443,6 +451,9 @@ QtObject {
         : "Nothing to report for this window \u2014 the engine produced an empty briefing."
     }
     if (markdown === "") return unavailable
+    // Image syntax would make the renderer fetch remote URLs (a beacon
+    // channel for hostile memory content); neutralize it everywhere.
+    markdown = markdown.replace(/!\[/g, "!\\[")
     return { markdown: markdown, generatedAt: generatedAt, available: true }
   }
 
@@ -490,9 +501,15 @@ QtObject {
     interval: 150
     repeat: false
     onTriggered: {
-      // Presence evidence belongs to the current settings generation: a
-      // daemonUrl edit must be able to move between demo and offline.
-      root.everResponded = false
+      // Presence evidence belongs to the connection identity, not to every
+      // shell.json edit: a daemonUrl/token change must be able to move
+      // between demo and offline, but an unrelated bar tweak must not flip
+      // an offline machine onto demo data.
+      var fingerprint = root.daemonUrl + "\u0000" + root.tokenPath + "\u0000" + root.inlineToken
+      if (fingerprint !== root.connectionFingerprint) {
+        root.connectionFingerprint = fingerprint
+        root.everResponded = false
+      }
       root.probeSettled = false
       root.hasCounted = false
       root.demoApplied = false
@@ -590,5 +607,8 @@ QtObject {
     }
   }
 
-  Component.onCompleted: poll()
+  Component.onCompleted: {
+    connectionFingerprint = daemonUrl + "\u0000" + tokenPath + "\u0000" + inlineToken
+    poll()
+  }
 }

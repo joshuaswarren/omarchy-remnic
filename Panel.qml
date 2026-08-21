@@ -243,6 +243,15 @@ Item {
     var trimmed = root.query.trim()
     if (trimmed.length < 3) return
 
+    // A search fired while the client is still settling would race the first
+    // poll on the daemon; park it and re-run when the mode resolves.
+    if (client.mode === "connecting") {
+      root.searching = true
+      root.pendingSearch = true
+      return
+    }
+    root.pendingSearch = false
+
     root.searching = true
     var serial = ++root.searchSerial
     client.search(trimmed, function(rows, ok) {
@@ -253,6 +262,23 @@ Item {
       root.selectedIndex = root.results.length > 0 ? 0 : -1
       root.expandedId = ""
     })
+  }
+
+  property bool pendingSearch: false
+
+  Connections {
+    target: client
+    function onModeChanged() {
+      if (!root.pendingSearch) return
+      if (client.mode === "connecting") return
+      if (client.mode === "offline") {
+        root.pendingSearch = false
+        root.searching = false
+        root.searchFailed = true
+        return
+      }
+      root.runSearch()
+    }
   }
 
   function focusSearch() {
@@ -395,6 +421,14 @@ Item {
     if (payload.anchor && typeof payload.anchor === "object") {
       var edge = String(payload.anchor.edge || "")
       if (edge === "top" || edge === "bottom" || edge === "left" || edge === "right") root.anchorEdge = edge
+      // The chip's coordinates are local to its own screen, so the window
+      // must map on that screen or the clamp math lands on the wrong output.
+      var screenName = String(payload.anchor.screen || "")
+      if (screenName !== "") {
+        for (var s = 0; s < Quickshell.screens.length; s++) {
+          if (Quickshell.screens[s].name === screenName) { window.screen = Quickshell.screens[s]; break }
+        }
+      }
       // The chip sends both screen coordinates; which one runs along the bar
       // depends on the edge.
       var along = Number(root.barVertical ? payload.anchor.y : payload.anchor.x)
@@ -409,7 +443,9 @@ Item {
     if (payload.query !== undefined) {
       root.showTab("recall")
       searchField.text = String(payload.query || "")
-      // A deep-linked query should not sit out the as-you-type debounce.
+      // Assigning text arms the as-you-type debounce; stop it so the
+      // deep-linked query runs exactly once, immediately.
+      searchDebounce.stop()
       root.runSearch()
     }
 

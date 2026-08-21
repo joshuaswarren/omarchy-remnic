@@ -91,7 +91,7 @@ Memory content is sensitive. This plugin is read-only by contract:
 - All live reads go to Remnic's existing daemon HTTP API (`/engram/v1/health`, `/engram/v1/memories`); no mutating endpoint is ever called.
 - Exactly two subprocess call sites exist: `remnic briefing --format json` (fixed argv, no shell) and `wl-copy` (memory text via stdin, only on explicit Enter). Audit them with `grep -n "Process {" -r .`.
 - The bearer token is read from disk, sent only as an `Authorization` header to `daemonUrl`, never logged, never rendered.
-- Memory text renders as plain text (`Text.PlainText`) — no rich-text injection.
+- Memory text renders as plain text (`Text.PlainText`). The briefing is the one markdown surface: memory-derived section items are markdown-escaped and image syntax is neutralized before rendering, so memory content cannot inject rich text or trigger remote fetches.
 - No network access besides `daemonUrl`. No telemetry. Nothing written to disk.
 
 ## Development

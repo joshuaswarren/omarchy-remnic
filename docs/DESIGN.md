@@ -85,7 +85,7 @@ function refresh()              // re-poll now
    - clipboard copy in the panel, argv `["wl-copy"]` with the memory text written to stdin (never in argv), spawned only on explicit Enter.
 2. Token read from disk is never logged, never rendered, sent only as `Authorization` header to `daemonUrl`.
 3. No writes anywhere except the clipboard on explicit Enter.
-4. Memory text rendered with `textFormat: Text.PlainText` (no rich-text injection from memory content).
+4. Memory text rendered with `textFormat: Text.PlainText`. The briefing body is the single `MarkdownText` surface; memory-derived section items are markdown-escaped and `![` image syntax is neutralized in every briefing before render (no rich-text injection, no remote-image beacon).
 
 ## 6. Settings (final; supersedes REQUIREMENTS §5 draft)
 

@@ -141,6 +141,8 @@ Item {
       var point = root.bar.windowScreenPoint(root.mapToItem(null, root.width / 2, root.height / 2), window)
       info.x = Math.round(point.x)
       info.y = Math.round(point.y)
+      // Coordinates are local to the chip's screen; the panel maps there.
+      info.screen = String(window.screen.name || "")
     }
     return (info.edge !== undefined || info.x !== undefined) ? info : null
   }
