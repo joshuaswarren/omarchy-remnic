@@ -30,8 +30,8 @@ Item {
   // Bar.qml paints a tooltip only while its target reports the pointer itself.
   readonly property bool tooltipHovered: mouse.containsMouse
 
-  // 0 at rest, 1 at the top of a capture pulse. One value drives scale,
-  // brightness, and the accent tint so the whole chip animates together.
+  // 0 at rest, 1 at the top of a capture pulse. One value drives the count
+  // and glyph scale, the opacity, and the accent tint so they stay in sync.
   property real pulse: 0
   readonly property color tinted: Qt.tint(root.foreground,
     Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, root.pulse))
@@ -69,7 +69,6 @@ Item {
       rowSpacing: 0
       horizontalItemAlignment: Grid.AlignHCenter
       verticalItemAlignment: Grid.AlignVCenter
-      scale: 1 + root.pulse * 0.18
       opacity: 0.85 + root.pulse * 0.15
 
       Text {
@@ -78,6 +77,7 @@ Item {
         color: root.tinted
         font.family: root.fontFamily
         font.pixelSize: Style.bar.iconFont
+        scale: 1 + root.pulse * 0.06
 
         // Child of the glyph so it can anchor to it; Text ignores children when
         // it reports its implicit size, so the positioner layout is unaffected.
@@ -102,6 +102,7 @@ Item {
         color: root.tinted
         font.family: root.fontFamily
         font.pixelSize: root.vertical ? Style.font.caption : Style.font.bodySmall
+        scale: 1 + root.pulse * 0.12
       }
 
       Text {

@@ -1,7 +1,7 @@
 import QtQuick
 import qs.Commons
 
-// One memory: category glyph, summary, source badge, relative time. Collapsed
+// One memory: summary, source badge, relative time. Collapsed
 // it shows two elided lines; expanded it shows the whole summary plus tags.
 //
 // Every Text carrying memory content pins textFormat to PlainText. Memory text
@@ -38,19 +38,10 @@ Item {
     return value.length > limit ? value.substring(0, limit) + "\u2026" : value
   }
 
-  // Only glyphs already shipped by first-party panels, plus the brain mark the
-  // plugin uses for "a memory" everywhere else. An unpatched font renders a
-  // guessed codepoint as tofu, so the map stays small on purpose.
-  readonly property string categoryGlyph: {
-    var category = memory ? String(memory.category || "").toLowerCase() : ""
-    if (category.indexOf("decision") >= 0) return "󰄬"
-    if (category.indexOf("procedure") >= 0 || category.indexOf("workflow") >= 0) return "󰒓"
-    if (category.indexOf("event") >= 0 || category.indexOf("meeting") >= 0) return "󰃭"
-    return "󰧑"
-  }
-
   implicitHeight: layout.implicitHeight + Style.spacing.controlPaddingY * 2
   height: implicitHeight
+
+  Behavior on height { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
   Rectangle {
     anchors.fill: parent
@@ -62,7 +53,7 @@ Item {
     Behavior on color { ColorAnimation { duration: 120 } }
   }
 
-  Row {
+  Column {
     id: layout
     anchors.left: parent.left
     anchors.right: parent.right
@@ -70,96 +61,79 @@ Item {
     anchors.leftMargin: Style.spacing.rowPaddingX
     anchors.rightMargin: Style.spacing.rowPaddingX
     anchors.topMargin: Style.spacing.controlPaddingY
-    spacing: Style.spacing.controlGap
+    spacing: Style.spacing.xs
 
     Text {
-      id: categoryMark
-      text: root.categoryGlyph
+      width: parent.width
+      text: root.summary
       textFormat: Text.PlainText
-      color: root.selected ? root.accent : Qt.darker(root.foreground, 1.5)
+      color: root.foreground
       font.family: Style.font.family
-      font.pixelSize: Style.font.icon
-      // Nerd-font outlines overshoot the ascent; reserve it so the glyph is
-      // not beheaded by the list's clip on the first row.
-      topPadding: Math.ceil(Style.font.icon * 0.15)
+      font.pixelSize: Style.font.body
+      font.bold: root.selected
+      wrapMode: Text.WordWrap
+      elide: root.expanded ? Text.ElideNone : Text.ElideRight
+      maximumLineCount: root.expanded ? 24 : 2
     }
 
-    Column {
-      width: parent.width - parent.spacing - categoryMark.width
-      spacing: Style.spacing.xs
+    Row {
+      spacing: Style.spacing.sm
+
+      Rectangle {
+        visible: root.source !== ""
+        width: sourceLabel.implicitWidth + Style.spacing.sm * 2
+        height: sourceLabel.implicitHeight + Style.spacing.xxs * 2
+        radius: Style.cornerRadius > 0 ? Style.cornerRadius : Math.round(height / 2)
+        color: Style.normalFillFor(root.accent, root.accent)
+        anchors.verticalCenter: parent.verticalCenter
+
+        Text {
+          id: sourceLabel
+          anchors.centerIn: parent
+          text: root.clampLabel(root.source, 18).toUpperCase()
+          textFormat: Text.PlainText
+          color: Qt.darker(root.foreground, 1.35)
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+      }
 
       Text {
-        width: parent.width
-        text: root.summary
+        text: root.timeText
         textFormat: Text.PlainText
-        color: root.foreground
+        color: Qt.darker(root.foreground, 1.5)
         font.family: Style.font.family
-        font.pixelSize: Style.font.body
-        wrapMode: Text.WordWrap
-        elide: root.expanded ? Text.ElideNone : Text.ElideRight
-        maximumLineCount: root.expanded ? 24 : 2
+        font.pixelSize: Style.font.caption
+        anchors.verticalCenter: parent.verticalCenter
       }
+    }
 
-      Row {
-        spacing: Style.spacing.sm
+    Flow {
+      width: parent.width
+      visible: root.expanded && root.tags.length > 0
+      spacing: Style.spacing.sm
 
-        Rectangle {
-          visible: root.source !== ""
-          width: sourceLabel.implicitWidth + Style.spacing.sm * 2
-          height: sourceLabel.implicitHeight + Style.spacing.xxs * 2
-          radius: Style.cornerRadius > 0 ? Style.cornerRadius : Math.round(height / 2)
-          color: Style.selectedFillFor(root.accent, root.accent)
-          anchors.verticalCenter: parent.verticalCenter
+      Repeater {
+        model: root.expanded ? root.tags : []
 
-          Text {
-            id: sourceLabel
-            anchors.centerIn: parent
-            text: root.clampLabel(root.source, 18).toUpperCase()
-            textFormat: Text.PlainText
-            color: root.accent
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-            font.bold: true
-          }
-        }
+        delegate: Text {
+          required property var modelData
 
-        Text {
-          text: root.timeText
+          text: "#" + root.clampLabel(modelData, 24)
           textFormat: Text.PlainText
-          color: Qt.darker(root.foreground, 1.5)
-          font.family: Style.font.family
-          font.pixelSize: Style.font.caption
-          anchors.verticalCenter: parent.verticalCenter
-        }
-      }
-
-      Flow {
-        width: parent.width
-        visible: root.expanded && root.tags.length > 0
-        spacing: Style.spacing.sm
-
-        Repeater {
-          model: root.expanded ? root.tags : []
-
-          delegate: Text {
-            required property var modelData
-
-            text: "#" + root.clampLabel(modelData, 24)
-            textFormat: Text.PlainText
-            color: Qt.darker(root.foreground, 1.35)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-          }
-        }
-
-        Text {
-          visible: root.hiddenTagCount > 0
-          text: "+" + root.hiddenTagCount
-          textFormat: Text.PlainText
-          color: Qt.darker(root.foreground, 1.5)
+          color: Qt.darker(root.foreground, 1.35)
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
         }
+      }
+
+      Text {
+        visible: root.hiddenTagCount > 0
+        text: "+" + root.hiddenTagCount
+        textFormat: Text.PlainText
+        color: Qt.darker(root.foreground, 1.5)
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
       }
     }
   }
