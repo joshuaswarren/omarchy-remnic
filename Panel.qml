@@ -40,11 +40,11 @@ Item {
   readonly property int cardHeight: body.implicitHeight + root.padding * 2
     + Border.top(root.borderSpec) + Border.bottom(root.borderSpec)
 
-  // The tab body keeps one height across tabs so switching never resizes the
-  // window. `chrome` is a static allowance for header + tabs + footer; measuring
-  // them instead would make the body's height depend on the column that
-  // contains it.
-  readonly property int contentAreaHeight: {
+  // Ceiling for the content area: what the screen can spare once the bar,
+  // gaps, and a static chrome allowance (header + tabs + footer) are taken
+  // out. Measuring the real chrome instead would make the body's height
+  // depend on the column that contains it.
+  readonly property int contentCeiling: {
     var chrome = Style.space(150)
     var available = root.screenH > 0
       ? root.screenH - root.barSize - root.gap - root.margin * 2 - chrome
@@ -52,6 +52,24 @@ Item {
     if (available <= 0) return Style.space(360)
     return Math.max(Style.space(160), Math.min(Style.space(360), Math.round(available)))
   }
+
+  // Preferred height of the active tab's content, so short results do not
+  // float in dead void: the tab says how tall it wants to be and the area
+  // clamps between a floor and the ceiling. Blocking states keep a fixed
+  // height so their cards stay centered and calm.
+  readonly property real preferredContentHeight: {
+    if (root.tab === "recall")
+      return searchField.height + resultList.contentHeight + Style.spacing.md
+    if (root.tab === "recent")
+      return recentList.contentHeight
+    if (root.tab === "briefing")
+      return briefingText.implicitHeight + briefingFooter.height + Style.spacing.md
+    return Style.space(120)
+  }
+
+  readonly property int contentAreaHeight: root.blocking
+    ? Math.min(root.contentCeiling, Style.space(180))
+    : Math.max(Style.space(120), Math.min(root.contentCeiling, root.preferredContentHeight))
 
   // The chip reports the bar edge and its own position so the panel opens
   // beside it. IPC deep-links carry no anchor and center on the bar instead.
@@ -111,26 +129,6 @@ Item {
   readonly property int recentLimit: {
     var configured = Number(panelSettings.value ? panelSettings.value.recentLimit : NaN)
     return (isFinite(configured) && configured > 0) ? Math.round(configured) : 30
-  }
-  readonly property string footerLine: {
-    var line = String(client.healthLine || "")
-    var ns = String(client.namespace || "")
-    if (ns !== "") line = line === "" ? "ns " + ns : line + " · ns " + ns
-    return line
-  }
-  readonly property var headerBadges: {
-    var out = []
-    if (client.mode === "demo") out.push({ label: "DEMO", tone: "accent" })
-    else if (client.mode === "offline") out.push({ label: "OFFLINE", tone: "urgent" })
-    var ns = String(client.namespace || "")
-    if (ns !== "") out.push({ label: ns, tone: "muted" })
-    return out
-  }
-
-  function badgeColor(tone) {
-    if (tone === "urgent") return Color.urgent
-    if (tone === "accent") return Color.accent
-    return Qt.darker(Color.popups.text, 1.35)
   }
 
   // ------------------------------------------------------------- clock
@@ -663,67 +661,30 @@ Item {
           spacing: Style.spacing.md
 
           // ---------------------------------------------------------- header
-          Item {
+          PanelHero {
             width: parent.width
-            height: Math.max(titleRow.implicitHeight, refreshButton.implicitHeight)
+            title: "Remnic Recall"
+            // Raw text: PanelHero uppercases the meta line itself.
+            meta: client.healthLine
+            // An empty namespace hides the detail pill inside the hero.
+            detail: client.namespace
+            foreground: Color.popups.text
 
-            Row {
-              id: titleRow
-
-              anchors.left: parent.left
-              anchors.right: refreshButton.left
-              anchors.rightMargin: Style.spacing.controlGap
-              anchors.verticalCenter: parent.verticalCenter
-              spacing: Style.spacing.controlGap
-
+            iconComponent: Component {
               Text {
-                text: "Remnic Recall"
-                color: Color.popups.text
+                text: "󰧑"
+                color: Color.accent
                 font.family: Style.font.family
-                font.pixelSize: Style.font.title
-                font.bold: true
-                anchors.verticalCenter: parent.verticalCenter
-              }
-
-              Repeater {
-                model: root.headerBadges
-
-                delegate: Rectangle {
-                  id: badge
-
-                  required property var modelData
-
-                  readonly property color tint: root.badgeColor(String(modelData.tone || ""))
-
-                  width: badgeLabel.implicitWidth + Style.spacing.md * 2
-                  height: badgeLabel.implicitHeight + Style.spacing.xxs * 2
-                  radius: Style.cornerRadius > 0 ? Style.cornerRadius : Math.round(height / 2)
-                  color: Style.selectedFillFor(badge.tint, badge.tint)
-                  anchors.verticalCenter: parent.verticalCenter
-
-                  Text {
-                    id: badgeLabel
-
-                    anchors.centerIn: parent
-                    text: String(badge.modelData.label || "")
-                    textFormat: Text.PlainText
-                    color: badge.tint
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
-                    font.bold: true
-                  }
-                }
+                font.pixelSize: Style.font.display
               }
             }
 
-            Button {
-              id: refreshButton
-
-              anchors.right: parent.right
-              anchors.verticalCenter: parent.verticalCenter
-              iconText: "󰑐"
-              tooltipText: "Refresh"
-              onClicked: client.refresh()
+            trailingControl: Component {
+              Button {
+                iconText: "󰑐"
+                tooltipText: "Refresh"
+                onClicked: client.refresh()
+              }
             }
           }
 
@@ -743,6 +704,10 @@ Item {
             width: parent.width
             height: root.contentAreaHeight
             clip: true
+
+            // Tab switches and arriving results resize the card smoothly
+            // instead of snapping to the new preferred height.
+            Behavior on height { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
 
             // -- offline card -------------------------------------------------
             Column {
@@ -818,7 +783,7 @@ Item {
                 text: "󰑐"
                 color: Color.accent
                 font.family: Style.font.family
-                font.pixelSize: Style.font.displayLarge
+                font.pixelSize: Style.font.display
 
                 RotationAnimation on rotation {
                   from: 0
@@ -831,18 +796,29 @@ Item {
 
               Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Connecting to Remnic\u2026"
-                color: Qt.darker(Color.popups.text, 1.2)
+                text: "Reaching the Remnic engine"
+                color: Color.popups.text
                 font.family: Style.font.family
-                font.pixelSize: Style.font.subtitle
+                font.pixelSize: Style.font.body
+              }
+
+              Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "This usually takes a moment"
+                color: Qt.darker(Color.popups.text, 1.5)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.bodySmall
               }
             }
 
             // -- recall -------------------------------------------------------
             Column {
               anchors.fill: parent
-              visible: root.tab === "recall" && !root.blocking
+              opacity: root.tab === "recall" && !root.blocking ? 1 : 0
+              visible: opacity > 0
               spacing: Style.spacing.md
+
+              Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
 
               TextField {
                 id: searchField
@@ -868,17 +844,17 @@ Item {
                   Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "󰧑"
-                    color: Style.selectedFillFor(Color.popups.text, Color.accent)
+                    color: Qt.darker(Color.popups.text, 1.3)
                     font.family: Style.font.family
-                    font.pixelSize: Style.space(56)
+                    font.pixelSize: Style.font.displayLarge
                   }
 
                   Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Type to recall"
+                    text: "Search your agents' memory"
                     color: Qt.darker(Color.popups.text, 1.5)
                     font.family: Style.font.family
-                    font.pixelSize: Style.font.body
+                    font.pixelSize: Style.font.bodySmall
                   }
                 }
 
@@ -900,10 +876,55 @@ Item {
                   }
                 }
 
+                Column {
+                  anchors.centerIn: parent
+                  width: parent.width - Style.spacing.panelPadding * 2
+                  visible: !root.searching && root.searchFailed
+                    && root.query.trim().length >= 3 && root.results.length === 0
+                  spacing: Style.spacing.md
+
+                  Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "󰅙"
+                    color: Color.urgent
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.display
+                  }
+
+                  Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "Search failed"
+                    color: Color.popups.text
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.body
+                    font.bold: true
+                  }
+
+                  Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width
+                    text: String(client.healthLine || "")
+                    textFormat: Text.PlainText
+                    color: Qt.darker(Color.popups.text, 1.4)
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.bodySmall
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                  }
+
+                  Button {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "Retry"
+                    bordered: true
+                    onClicked: root.runSearch()
+                  }
+                }
+
                 Text {
                   anchors.centerIn: parent
-                  visible: !root.searching && root.query.trim().length >= 3 && root.results.length === 0
-                  text: root.searchFailed ? "Search failed — the engine did not answer" : "No memories match"
+                  visible: !root.searching && !root.searchFailed
+                    && root.query.trim().length >= 3 && root.results.length === 0
+                  text: "No memories match"
                   color: Qt.darker(Color.popups.text, 1.5)
                   font.family: Style.font.family
                   font.pixelSize: Style.font.body
@@ -915,9 +936,35 @@ Item {
                   anchors.fill: parent
                   visible: !root.searching && root.results.length > 0
                   clip: true
-                  spacing: Style.spacing.xxs
+                  spacing: Style.spacing.sm
                   boundsBehavior: Flickable.StopAtBounds
-                  model: root.tab === "recall" ? root.results : []
+                  // Models stay bound to the data on every tab so each list's
+                  // contentHeight is live and drives a single smooth height
+                  // step when the tab switches.
+                  model: root.results
+
+                  // Staggered entrance for freshly delivered results. The
+                  // per-index pause is capped so a 20-row result set never
+                  // feels slow, and ViewTransition (not onCompleted) keeps
+                  // recycled delegates from re-animating on scroll.
+                  populate: Transition {
+                    SequentialAnimation {
+                      PauseAnimation { duration: Math.min(ViewTransition.index * 30, 180) }
+                      ParallelAnimation {
+                        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 120; easing.type: Easing.OutCubic }
+                        NumberAnimation { property: "y"; from: ViewTransition.destination.y + Style.space(6); to: ViewTransition.destination.y; duration: 140; easing.type: Easing.OutCubic }
+                      }
+                    }
+                  }
+                  add: Transition {
+                    SequentialAnimation {
+                      PauseAnimation { duration: Math.min(ViewTransition.index * 30, 180) }
+                      ParallelAnimation {
+                        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 120; easing.type: Easing.OutCubic }
+                        NumberAnimation { property: "y"; from: ViewTransition.destination.y + Style.space(6); to: ViewTransition.destination.y; duration: 140; easing.type: Easing.OutCubic }
+                      }
+                    }
+                  }
                   currentIndex: root.selectedIndex
 
                   delegate: MemoryRow {
@@ -939,7 +986,10 @@ Item {
             // -- recent -------------------------------------------------------
             Item {
               anchors.fill: parent
-              visible: root.tab === "recent" && !root.blocking
+              opacity: root.tab === "recent" && !root.blocking ? 1 : 0
+              visible: opacity > 0
+
+              Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
 
               Text {
                 anchors.centerIn: parent
@@ -956,9 +1006,9 @@ Item {
                 anchors.fill: parent
                 visible: root.recentItems.length > 0
                 clip: true
-                spacing: Style.spacing.xxs
+                spacing: Style.spacing.sm
                 boundsBehavior: Flickable.StopAtBounds
-                model: root.tab === "recent" ? root.recentItems : []
+                model: root.recentItems
                 currentIndex: root.selectedIndex
 
                 delegate: Column {
@@ -998,7 +1048,10 @@ Item {
             // -- briefing -----------------------------------------------------
             Item {
               anchors.fill: parent
-              visible: root.tab === "briefing" && !root.blocking
+              opacity: root.tab === "briefing" && !root.blocking ? 1 : 0
+              visible: opacity > 0
+
+              Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
 
               Flickable {
                 id: briefingFlick
@@ -1049,19 +1102,33 @@ Item {
                 }
               }
 
-              Text {
+              Column {
                 anchors.centerIn: parent
                 width: parent.width - Style.spacing.panelPadding * 2
                 visible: !root.briefingPending && root.briefingMarkdown === ""
-                text: root.briefingProbed
-                  ? "No briefing available. Try remnic briefing from a terminal."
-                  : "Loading the briefing…"
-                textFormat: Text.PlainText
-                color: Qt.darker(Color.popups.text, 1.5)
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
+                spacing: Style.spacing.md
+
+                Text {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  text: "󰧑"
+                  color: Qt.darker(Color.popups.text, 1.3)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.display
+                }
+
+                Text {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  width: parent.width
+                  text: root.briefingProbed
+                    ? "No briefing available. Try remnic briefing from a terminal."
+                    : "Loading the briefing…"
+                  textFormat: Text.PlainText
+                  color: Qt.darker(Color.popups.text, 1.5)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                  horizontalAlignment: Text.AlignHCenter
+                  wrapMode: Text.WordWrap
+                }
               }
 
               Item {
@@ -1120,7 +1187,7 @@ Item {
               anchors.right: demoChip.visible ? demoChip.left : parent.right
               anchors.rightMargin: Style.spacing.sm
               anchors.verticalCenter: parent.verticalCenter
-              text: root.footerLine
+              text: client.healthLine
               textFormat: Text.PlainText
               color: Qt.darker(Color.popups.text, 1.45)
               font.family: Style.font.family
