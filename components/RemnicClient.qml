@@ -284,6 +284,9 @@ QtObject {
     }
     if (!request) return null
     request.onreadystatechange = function() {
+      // The response can land after the shell tears this object down
+      // (plugin reload, panel destroy); captured ids are null by then.
+      if (root === null) return
       if (request.readyState !== XMLHttpRequest.DONE) return
       // Status 0 is a transport failure (refused, DNS, abort); any real status,
       // 401 and 503 included, proves something is listening.
