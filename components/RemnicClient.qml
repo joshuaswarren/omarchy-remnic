@@ -61,7 +61,13 @@ QtObject {
 
   function fetchBriefing(cb) {
     if (typeof cb !== "function") return
-    if (root.mode === "demo") { cb(demoData.briefing()); return }
+    if (root.mode === "demo") {
+      // The bundled briefing is fabricated too, so it carries the same mark
+      // even when the demo memories file never loaded (invariant 10).
+      root.showingDemo = true
+      cb(demoData.briefing())
+      return
+    }
     briefingCallbacks.push(cb)
     // Mid-flight calls just queue; a run that already resolved starts a fresh one.
     if (briefingResolved || !briefingProcess.running) startBriefing()
@@ -181,6 +187,7 @@ QtObject {
   // goes straight into GUI-thread text layout and onto the clipboard.
   readonly property int maxSummaryChars: 2000
   readonly property int maxTokenFileChars: 65536
+  readonly property int maxJsonScanAttempts: 50
 
   // Shared bound for any daemon-supplied string that reaches the UI.
   function clampText(value, limit) {
@@ -498,8 +505,12 @@ QtObject {
   // stream whole: try every line-start "{" until one parses.
   function extractJson(text) {
     var at = text.indexOf("{")
-    while (at >= 0) {
+    // Each attempt copies the remaining tail, so cap the number of candidates:
+    // pathological stdout must not turn this into a GUI-thread stall.
+    var attempts = 0
+    while (at >= 0 && attempts < maxJsonScanAttempts) {
       if (at === 0 || text.charAt(at - 1) === "\n") {
+        attempts++
         try {
           return JSON.parse(text.substring(at))
         } catch (e) {
@@ -543,6 +554,9 @@ QtObject {
       .replace(/</g, "\\<")
       .replace(/\[/g, "\\[")
       .replace(/\]/g, "\\]")
+      // Tables are the one construct whose layout cost is unbounded in two
+      // lines of text, and a briefing has no need of them.
+      .replace(/\|/g, "\\|")
   }
 
   function parseBriefing(raw, exitCode) {

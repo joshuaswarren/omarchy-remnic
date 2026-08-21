@@ -69,7 +69,7 @@ Left-click: toggle panel (opens on Recall tab). Right-click: refresh / switch ta
 
 ## 6. Data & integration
 
-- All engine access via subprocess calls to the Remnic CLI with JSON output flags (argument arrays, no shell interpolation). Candidate surfaces, to be pinned against the shipping CLI at implementation time: recall/search, recent/stats, briefing, doctor/health.
+- ~~All engine access via subprocess calls to the Remnic CLI~~ **superseded during implementation** — see [DESIGN.md §1](DESIGN.md#1-engine-access-architecture-settles-requirements-610). Live reads go over HTTP to the Remnic daemon (`GET /engram/v1/health`, `GET /engram/v1/memories`); the CLI remains the surface for the briefing only. The CLI is itself an HTTP client of that daemon and has no recent-memories command, so the daemon is the narrower, faster surface.
 - Capture-count polling every `pollSeconds`; search calls are on-demand only.
 - Demo dataset: ~25 hand-written sample memories + one sample briefing in `assets/demo/`, loaded from disk, clearly watermarked in the UI.
 - Defensive parsing throughout: engine version drift degrades features (hide the Briefing tab if the command is missing) rather than erroring the whole panel.
@@ -78,7 +78,7 @@ Left-click: toggle panel (opens on Recall tab). Right-click: refresh / switch ta
 
 - Read-only by contract (G5, N1): the plugin never invokes mutating Remnic commands (`forget`, `purge`, capture, migrate).
 - Memory content is sensitive by nature: it renders on screen only inside the panel, is never written to disk by the plugin, never logged, and clipboard copy happens only on explicit user action (Enter).
-- No network access by the plugin itself; the engine's own sync posture is untouched.
+- The plugin contacts exactly one network endpoint: the `daemonUrl` it is configured with (loopback by default). It is an HTTP client of the Remnic daemon, so the search query and the bearer token are sent to that endpoint; the token is withheld unless the destination is loopback or HTTPS (or the user sets `allowInsecureToken`). Nothing is sent anywhere else, and memory content is never transmitted outward — it only travels from the engine to the panel.
 - Subprocess: fixed argument arrays; the only user-influenced values (`query`, `namespace`) are passed as discrete argv entries.
 
 ## 8. Acceptance criteria

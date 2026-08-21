@@ -85,13 +85,13 @@ function refresh()              // re-poll now
    - clipboard copy in the panel, argv `["wl-copy"]` with the memory text written to stdin (never in argv), spawned only on explicit Enter.
 2. Token read from disk is never logged, never rendered, sent only as `Authorization` header to `daemonUrl`.
 3. No writes anywhere except the clipboard on explicit Enter.
-4. Memory text rendered with `textFormat: Text.PlainText`. The briefing body is the single `MarkdownText` surface and is treated as untrusted, because the engine assembles it from memory content: `sanitizeBriefingMarkdown` escapes `<`, `[`, and `]` on the verbatim path (killing inline HTML, autolinks, images, and link syntax while leaving headings, emphasis, lists, and code spans), and `escapeMarkdown` renders section items fully inert. No memory content can inject markup or cause a remote fetch.
+4. Memory text renders with `textFormat: Text.PlainText`. The briefing body is the single `MarkdownText` surface and is treated as untrusted, because the engine assembles it from memory content: `sanitizeBriefingMarkdown` escapes `\`, `<`, `[`, `]`, and `|` on the verbatim path, and `escapeMarkdown` renders section items fully inert. **What that guarantees:** no inline HTML, no image (so no remote fetch), no link syntax, no table. **What it does not:** a bare URL can still be auto-linked by the GFM parser into an inert anchor — the plugin installs no `onLinkActivated`, so it cannot be opened or followed. Headings, emphasis, lists, and code spans survive by design.
 5. Responses are bounded before parsing (`maxResponseChars`, `maxMemoriesParsed`, `maxBriefingChars`) so a hostile or broken engine cannot stall the shell's GUI thread.
 6. The connection identity used for change detection is a `Qt.md5` digest, not a stored copy of the token.
-7. The bearer token is released only to an `https://` or loopback `daemonUrl`; plaintext-remote requires the explicit `allowInsecureToken` opt-in.
+7. The bearer token is released only to an `https://` or loopback `daemonUrl` (userinfo is stripped before the host is judged, so `http://127.0.0.1:pw@elsewhere` does not qualify); plaintext-remote requires the explicit `allowInsecureToken` opt-in. A response whose final URL is a different origin than the one authorized is discarded — note this is defense-in-depth, not prevention: QML's `XMLHttpRequest` follows redirects itself and exposes no way to refuse them, so the header may already have been sent before the check runs.
 8. `remnicCommand` is accepted only as a bare name or an absolute path without `..`; anything else falls back to the default rather than being executed.
-9. Every daemon-supplied string that reaches text layout is length-clamped (`maxSummaryChars`, badge/tag `clampLabel`), the tag list is count-capped, and the briefing is bounded by characters *and* lines.
-10. Demo rows are gated inside `loadDemo()` and marked by `showingDemo`, so bundled sample data can never render without the DEMO badge.
+9. Every daemon-supplied string that reaches text layout is length-clamped (`maxSummaryChars`, badge/tag `clampLabel`, `safeNamespace`), the tag list is count-capped, the briefing is bounded by characters *and* lines, and `extractJson` caps its candidate scans.
+10. Demo content is gated inside `loadDemo()`/`fetchBriefing` and marked by `showingDemo`, so bundled sample memories *or* the sample briefing can never render without the DEMO badge.
 
 ## 6. Settings (final; supersedes REQUIREMENTS §5 draft)
 
