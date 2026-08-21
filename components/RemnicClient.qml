@@ -570,7 +570,6 @@ QtObject {
     if (markdown === "" && node.sections && typeof node.sections === "object") {
       // Section items are plain sentences, not markdown; escapeMarkdown already
       // renders them inert, so this path is not sanitized again.
-      var lines = []
       sectionLines(lines, "Active threads", node.sections.activeThreads)
       sectionLines(lines, "Recent entities", node.sections.recentEntities)
       sectionLines(lines, "Open commitments", node.sections.openCommitments)
@@ -651,6 +650,10 @@ QtObject {
       root.probeSettled = false
       root.hasCounted = false
       root.demoApplied = false
+      // Drop the demo mark with the old generation: a settings change that
+      // moves the plugin off demo must not leave the badge behind on rows
+      // that are no longer sample data.
+      root.showingDemo = false
       root.poll()
     }
   }

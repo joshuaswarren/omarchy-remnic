@@ -733,18 +733,6 @@ Item {
                 font.bold: true
               }
 
-              Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: parent.width
-                text: String(client.healthLine || "")
-                textFormat: Text.PlainText
-                color: Qt.darker(Color.popups.text, 1.4)
-                font.family: Style.font.family
-                font.pixelSize: Style.font.bodySmall
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-              }
-
               Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: doctorHint.implicitWidth + Style.spacing.xl * 2
@@ -851,7 +839,7 @@ Item {
 
                   Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Search your agents' memory"
+                    text: "Type at least 3 characters"
                     color: Qt.darker(Color.popups.text, 1.5)
                     font.family: Style.font.family
                     font.pixelSize: Style.font.bodySmall
@@ -900,18 +888,6 @@ Item {
                     font.bold: true
                   }
 
-                  Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: parent.width
-                    text: String(client.healthLine || "")
-                    textFormat: Text.PlainText
-                    color: Qt.darker(Color.popups.text, 1.4)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.bodySmall
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
-                  }
-
                   Button {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "Retry"
@@ -943,26 +919,19 @@ Item {
                   // step when the tab switches.
                   model: root.results
 
-                  // Staggered entrance for freshly delivered results. The
-                  // per-index pause is capped so a 20-row result set never
-                  // feels slow, and ViewTransition (not onCompleted) keeps
-                  // recycled delegates from re-animating on scroll.
+                  // Staggered entrance for freshly delivered results. Opacity
+                  // only: animating `y` here fought the view's own positioning
+                  // and left delegates drawn on top of each other.
                   populate: Transition {
                     SequentialAnimation {
                       PauseAnimation { duration: Math.min(ViewTransition.index * 30, 180) }
-                      ParallelAnimation {
-                        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 120; easing.type: Easing.OutCubic }
-                        NumberAnimation { property: "y"; from: ViewTransition.destination.y + Style.space(6); to: ViewTransition.destination.y; duration: 140; easing.type: Easing.OutCubic }
-                      }
+                      NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 140; easing.type: Easing.OutCubic }
                     }
                   }
                   add: Transition {
                     SequentialAnimation {
                       PauseAnimation { duration: Math.min(ViewTransition.index * 30, 180) }
-                      ParallelAnimation {
-                        NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 120; easing.type: Easing.OutCubic }
-                        NumberAnimation { property: "y"; from: ViewTransition.destination.y + Style.space(6); to: ViewTransition.destination.y; duration: 140; easing.type: Easing.OutCubic }
-                      }
+                      NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 140; easing.type: Easing.OutCubic }
                     }
                   }
                   currentIndex: root.selectedIndex
@@ -1173,27 +1142,19 @@ Item {
             }
           }
 
-          PanelSeparator { width: parent.width }
+          // The hero's meta line already carries engine state, so the footer
+          // exists only to mark fabricated content. It disappears entirely on
+          // real data rather than repeating the header.
+          PanelSeparator {
+            width: parent.width
+            visible: client.showingDemo
+          }
 
           // ---------------------------------------------------------- footer
           Item {
             width: parent.width
-            height: Math.max(healthLabel.implicitHeight, demoChip.height)
-
-            Text {
-              id: healthLabel
-
-              anchors.left: parent.left
-              anchors.right: demoChip.visible ? demoChip.left : parent.right
-              anchors.rightMargin: Style.spacing.sm
-              anchors.verticalCenter: parent.verticalCenter
-              text: client.healthLine
-              textFormat: Text.PlainText
-              color: Qt.darker(Color.popups.text, 1.45)
-              font.family: Style.font.family
-              font.pixelSize: Style.font.caption
-              elide: Text.ElideRight
-            }
+            visible: client.showingDemo
+            height: visible ? demoChip.height : 0
 
             Rectangle {
               id: demoChip
