@@ -386,26 +386,56 @@ QtObject {
     return ""
   }
 
+  // `remnic briefing --format json` interleaves startup log lines with the
+  // payload on stdout, so locate the JSON document instead of parsing the
+  // stream whole: try every line-start "{" until one parses.
+  function extractJson(text) {
+    var at = text.indexOf("{")
+    while (at >= 0) {
+      if (at === 0 || text.charAt(at - 1) === "\n") {
+        try {
+          return JSON.parse(text.substring(at))
+        } catch (e) {
+          // Not the document start; keep scanning.
+        }
+      }
+      at = text.indexOf("{", at + 1)
+    }
+    return null
+  }
+
+  function sectionLines(out, title, items) {
+    if (!Array.isArray(items) || items.length === 0) return
+    out.push("### " + title)
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i]
+      var line = typeof item === "string"
+        ? item
+        : (item && typeof item === "object")
+          ? firstString([item.title, item.name, item.text, item.summary, item.content])
+          : ""
+      if (line !== "") out.push("- " + line)
+    }
+    out.push("")
+  }
+
   function parseBriefing(raw, exitCode) {
     var unavailable = { markdown: "", generatedAt: "", available: false }
     if (exitCode !== 0) return unavailable
-    var text = String(raw || "").replace(/^\s+|\s+$/g, "")
-    if (text === "") return unavailable
-
-    var markdown = ""
-    var generatedAt = ""
-    try {
-      var doc = JSON.parse(text)
-      if (typeof doc === "string") {
-        markdown = doc
-      } else if (doc && typeof doc === "object") {
-        var node = (doc.briefing && typeof doc.briefing === "object") ? doc.briefing : doc
-        markdown = firstString([node.markdown, node.text, node.content, node.body])
-        generatedAt = firstString([node.generatedAt, node.generated_at, node.createdAt, node.created])
-      }
-    } catch (e) {
-      // Older builds print the briefing as bare markdown rather than JSON.
-      markdown = text
+    var doc = extractJson(String(raw || ""))
+    if (doc === null || typeof doc !== "object") return unavailable
+    var node = (doc.briefing && typeof doc.briefing === "object") ? doc.briefing : doc
+    var generatedAt = firstString([node.generatedAt, node.generated_at, node.createdAt, node.created])
+    var markdown = firstString([node.markdown, node.text, node.content, node.body])
+    if (markdown === "" && node.sections && typeof node.sections === "object") {
+      var lines = []
+      sectionLines(lines, "Active threads", node.sections.activeThreads)
+      sectionLines(lines, "Recent entities", node.sections.recentEntities)
+      sectionLines(lines, "Open commitments", node.sections.openCommitments)
+      sectionLines(lines, "Suggested follow-ups", node.sections.suggestedFollowups)
+      markdown = lines.length > 0
+        ? lines.join("\n")
+        : "Nothing to report for this window \u2014 the engine produced an empty briefing."
     }
     if (markdown === "") return unavailable
     return { markdown: markdown, generatedAt: generatedAt, available: true }
