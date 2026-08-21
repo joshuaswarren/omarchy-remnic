@@ -55,9 +55,14 @@ Item {
 
   // Preferred height of the active tab's content, so short results do not
   // float in dead void: the tab says how tall it wants to be and the area
-  // clamps between a floor and the ceiling. Blocking states keep a fixed
-  // height so their cards stay centered and calm.
+  // clamps between a floor and the ceiling. The offline card is measured like
+  // any tab body so it never floats in dead space, and connecting is measured
+  // the same way so the two transient states read as one family.
   readonly property real preferredContentHeight: {
+    if (root.offline)
+      return offlineCard.implicitHeight + Style.spacing.md
+    if (root.connecting)
+      return connectingCard.implicitHeight + Style.spacing.md
     if (root.tab === "recall")
       return searchField.height + resultList.contentHeight + Style.spacing.md
     if (root.tab === "recent")
@@ -68,7 +73,7 @@ Item {
   }
 
   readonly property int contentAreaHeight: root.blocking
-    ? Math.min(root.contentCeiling, Style.space(180))
+    ? Math.min(root.contentCeiling, root.preferredContentHeight)
     : Math.max(Style.space(120), Math.min(root.contentCeiling, root.preferredContentHeight))
 
   // The chip reports the bar edge and its own position so the panel opens
@@ -126,6 +131,19 @@ Item {
   readonly property bool connecting: client.mode === "connecting"
   // Blocks tab content: the offline card or the connecting spinner owns the area.
   readonly property bool blocking: offline || connecting
+  // Fabricated rows always carry a visible DEMO mark (DESIGN.md invariant 10):
+  // the hero's health line covers demo mode, the footer chip covers all others.
+  readonly property bool demoMarkNeeded: client.showingDemo && client.mode !== "demo"
+  // The footer band shows the DEMO chip, the copy confirmation, or both.
+  readonly property bool footerActive: root.demoMarkNeeded || root.copied
+
+  // The active tab's scrolling list, when it has one; drives the bottom fade.
+  readonly property var activeList: root.tab === "recall" ? resultList
+    : (root.tab === "recent" ? recentList : null)
+  // True while the active list actually has content below the fold.
+  readonly property bool listCanScrollDown: !root.blocking && root.activeList !== null
+    && root.activeList.contentHeight > root.activeList.height
+    && root.activeList.contentY < root.activeList.contentHeight - root.activeList.height - 1
   readonly property int recentLimit: {
     var configured = Number(panelSettings.value ? panelSettings.value.recentLimit : NaN)
     return (isFinite(configured) && configured > 0) ? Math.round(configured) : 30
@@ -374,7 +392,7 @@ Item {
   property bool copied: false
 
   Timer {
-    id: copyToastTimer
+    id: copyResetTimer
     interval: 1500
     onTriggered: root.copied = false
   }
@@ -391,7 +409,7 @@ Item {
     copyProcess.stdinEnabled = true
     copyProcess.running = true
     root.copied = true
-    copyToastTimer.restart()
+    copyResetTimer.restart()
   }
 
   // The only subprocess in the panel. Memory text goes to stdin, never argv,
@@ -711,6 +729,8 @@ Item {
 
             // -- offline card -------------------------------------------------
             Column {
+              id: offlineCard
+
               anchors.centerIn: parent
               width: parent.width - Style.spacing.panelPadding * 2
               visible: root.offline
@@ -761,6 +781,8 @@ Item {
 
             // -- connecting card ----------------------------------------------
             Column {
+              id: connectingCard
+
               anchors.centerIn: parent
               width: parent.width - Style.spacing.panelPadding * 2
               visible: root.connecting
@@ -1028,6 +1050,7 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
+                anchors.topMargin: Style.spacing.md
                 anchors.bottom: briefingFooter.top
                 anchors.bottomMargin: Style.spacing.md
                 visible: root.briefingMarkdown !== ""
@@ -1053,21 +1076,37 @@ Item {
                 }
               }
 
-              Text {
+              Column {
                 anchors.centerIn: parent
                 visible: root.briefingPending && root.briefingMarkdown === ""
-                text: "󰑐"
-                color: Color.accent
-                font.family: Style.font.family
-                font.pixelSize: Style.font.display
-                transformOrigin: Item.Center
+                spacing: Style.spacing.md
 
-                RotationAnimation on rotation {
-                  from: 0
-                  to: 360
-                  duration: 900
-                  loops: Animation.Infinite
-                  running: root.briefingPending
+                Text {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  text: "󰑐"
+                  color: Color.accent
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.display
+                  transformOrigin: Item.Center
+
+                  RotationAnimation on rotation {
+                    from: 0
+                    to: 360
+                    duration: 900
+                    loops: Animation.Infinite
+                    running: root.briefingPending
+                  }
+                }
+
+                // The live briefing takes 20s+; name the wait so the spinner
+                // is not read as the footer's Refresh glyph.
+                Text {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  text: "Building today's briefing…"
+                  textFormat: Text.PlainText
+                  color: Qt.darker(Color.popups.text, 1.5)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
                 }
               }
 
@@ -1140,29 +1179,87 @@ Item {
                 }
               }
             }
+            // Bottom fade: while the active list has more content below the
+            // fold, the last rows dissolve into the panel background instead
+            // of shearing at the clip edge.
+            Rectangle {
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              height: Style.space(28)
+              visible: root.listCanScrollDown || opacity > 0
+              opacity: root.listCanScrollDown ? 1 : 0
+
+              Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+
+              gradient: Gradient {
+                GradientStop { position: 0; color: Util.alpha(Color.popups.background, 0) }
+                GradientStop { position: 1; color: Color.popups.background }
+              }
+            }
           }
 
-          // The hero's meta line already carries engine state, so the footer
-          // exists only to mark fabricated content. It disappears entirely on
-          // real data rather than repeating the header.
+          // The hero's health line carries the DEMO mark in demo mode; this
+          // footer carries it in every other mode with fabricated content, and
+          // doubles as the copy confirmation. A floating toast cannot win in a
+          // content-fit panel: it lands on the text it is confirming.
           PanelSeparator {
             width: parent.width
-            visible: client.showingDemo
+            visible: root.footerActive
           }
 
           // ---------------------------------------------------------- footer
           Item {
             width: parent.width
-            visible: client.showingDemo
-            height: visible ? demoChip.height : 0
+            visible: root.footerActive
+            height: visible ? Math.max(demoChip.height, copiedPill.height) : 0
+
+            Rectangle {
+              id: copiedPill
+
+              anchors.left: parent.left
+              anchors.verticalCenter: parent.verticalCenter
+              width: copiedRow.implicitWidth + Style.spacing.md * 2
+              height: copiedRow.implicitHeight + Style.spacing.xxs * 2
+              radius: Style.cornerRadius > 0 ? Style.cornerRadius : Math.round(height / 2)
+              color: Style.normalFillFor(Color.accent, Color.accent)
+              opacity: root.copied ? 1 : 0
+              visible: opacity > 0
+
+              Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
+
+              Row {
+                id: copiedRow
+
+                anchors.centerIn: parent
+                spacing: Style.spacing.sm
+
+                Text {
+                  text: "󰆏"
+                  color: Color.accent
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Text {
+                  text: "Copied"
+                  color: Color.accent
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+              }
+            }
 
             Rectangle {
               id: demoChip
 
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              // Keyed to the data, not the mode: sample rows always carry the mark.
-              visible: client.showingDemo
+              // Drawn only when the hero is not already carrying the mark.
+              visible: root.demoMarkNeeded
               width: demoLabel.implicitWidth + Style.spacing.md * 2
               height: demoLabel.implicitHeight + Style.spacing.xxs * 2
               radius: Style.cornerRadius > 0 ? Style.cornerRadius : Math.round(height / 2)
@@ -1183,43 +1280,6 @@ Item {
         }
       }
 
-      // ---------------------------------------------------------- copy toast
-      Rectangle {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: card.contentBottomInset + Style.spacing.xxxl
-        width: copyToastRow.implicitWidth + Style.spacing.xl * 2
-        height: copyToastRow.implicitHeight + Style.spacing.md * 2
-        radius: Style.cornerRadius
-        color: Style.selectedFillFor(Color.accent, Color.accent)
-        opacity: root.copied ? 1 : 0
-        visible: opacity > 0
-
-        Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-
-        Row {
-          id: copyToastRow
-
-          anchors.centerIn: parent
-          spacing: Style.spacing.sm
-
-          Text {
-            text: "󰆏"
-            color: Color.accent
-            font.family: Style.font.family
-            font.pixelSize: Style.font.bodySmall
-            anchors.verticalCenter: parent.verticalCenter
-          }
-
-          Text {
-            text: "Copied"
-            color: Color.accent
-            font.family: Style.font.family
-            font.pixelSize: Style.font.bodySmall
-            anchors.verticalCenter: parent.verticalCenter
-          }
-        }
-      }
     }
   }
 }

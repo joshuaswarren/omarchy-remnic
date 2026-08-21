@@ -30,7 +30,10 @@ QtObject {
     if (root.mode === "demo") return "demo data"
     if (root.mode === "live") return "engine ok \u00b7 qmd " + root.qmdState
     if (root.mode === "connecting") return "connecting to engine\u2026"
-    return "engine unreachable \u00b7 last seen " + (root.lastSeenLabel !== "" ? root.lastSeenLabel : "never")
+    // "last seen never" reads as a null in a timestamp slot; give the
+    // never-connected case its own clause.
+    if (root.lastSeenLabel === "") return "engine unreachable \u00b7 never connected"
+    return "engine unreachable \u00b7 last seen " + root.lastSeenLabel
   }
   property string namespace: ""
   property int todayCount: 0
