@@ -105,6 +105,9 @@ Item {
   }
 
   readonly property bool offline: client.mode === "offline"
+  readonly property bool connecting: client.mode === "connecting"
+  // Blocks tab content: the offline card or the connecting spinner owns the area.
+  readonly property bool blocking: offline || connecting
   readonly property int recentLimit: {
     var configured = Number(panelSettings.value ? panelSettings.value.recentLimit : NaN)
     return (isFinite(configured) && configured > 0) ? Math.round(configured) : 30
@@ -757,10 +760,42 @@ Item {
               }
             }
 
+            // -- connecting card ----------------------------------------------
+            Column {
+              anchors.centerIn: parent
+              width: parent.width - Style.spacing.panelPadding * 2
+              visible: root.connecting
+              spacing: Style.spacing.md
+
+              Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "󰑐"
+                color: Color.accent
+                font.family: Style.font.family
+                font.pixelSize: Style.font.displayLarge
+
+                RotationAnimation on rotation {
+                  from: 0
+                  to: 360
+                  duration: 1200
+                  loops: Animation.Infinite
+                  running: root.connecting && root.opened
+                }
+              }
+
+              Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Connecting to Remnic\u2026"
+                color: Qt.darker(Color.popups.text, 1.2)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.subtitle
+              }
+            }
+
             // -- recall -------------------------------------------------------
             Column {
               anchors.fill: parent
-              visible: root.tab === "recall" && !root.offline
+              visible: root.tab === "recall" && !root.blocking
               spacing: Style.spacing.md
 
               TextField {
@@ -858,7 +893,7 @@ Item {
             // -- recent -------------------------------------------------------
             Item {
               anchors.fill: parent
-              visible: root.tab === "recent" && !root.offline
+              visible: root.tab === "recent" && !root.blocking
 
               Text {
                 anchors.centerIn: parent
@@ -917,7 +952,7 @@ Item {
             // -- briefing -----------------------------------------------------
             Item {
               anchors.fill: parent
-              visible: root.tab === "briefing" && !root.offline
+              visible: root.tab === "briefing" && !root.blocking
 
               Flickable {
                 id: briefingFlick

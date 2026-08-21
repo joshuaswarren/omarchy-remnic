@@ -95,6 +95,9 @@ Item {
       }
 
       Text {
+        // No number until the first probe settles: a "0" that flips to the
+        // real count reads as a glitch.
+        visible: client.mode !== "connecting"
         text: root.countLabel
         color: root.tinted
         font.family: root.fontFamily

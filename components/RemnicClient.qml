@@ -19,14 +19,17 @@ QtObject {
   readonly property string mode: {
     if (root.demoSetting === "on") return "demo"
     if (root.healthy) return "live"
+    if (!root.probeSettled) return "connecting"
     if (root.demoSetting === "off") return "offline"
     return root.enginePresent ? "offline" : "demo"
   }
   property bool healthy: false
+  // No namespace here: the panel footer appends "ns <name>" itself, and the
+  // chip tooltip leads with the count.
   readonly property string healthLine: {
-    var ns = root.namespace !== "" ? root.namespace : "default"
-    if (root.mode === "demo") return "demo data \u00b7 ns " + (root.namespace !== "" ? root.namespace : "generalist")
-    if (root.mode === "live") return "engine ok \u00b7 qmd " + root.qmdState + " \u00b7 ns " + ns
+    if (root.mode === "demo") return "demo data"
+    if (root.mode === "live") return "engine ok \u00b7 qmd " + root.qmdState
+    if (root.mode === "connecting") return "connecting to engine\u2026"
     return "engine unreachable \u00b7 last seen " + (root.lastSeenLabel !== "" ? root.lastSeenLabel : "never")
   }
   property string namespace: ""
@@ -114,6 +117,9 @@ QtObject {
   // True once the daemon has answered with any HTTP status. Never set from the
   // demo path, or a demo machine would resolve as merely offline.
   property bool everResponded: false
+  // False until a health probe under the CURRENT settings resolves either way,
+  // so a slow first probe reads as "connecting", never as a false "offline".
+  property bool probeSettled: false
   property bool hasCounted: false
   property bool demoApplied: false
   property string qmdState: "unknown"
@@ -188,6 +194,7 @@ QtObject {
 
   function applyHealth(doc) {
     var ok = !!(doc && doc.ok !== false)
+    probeSettled = true
     healthy = ok
     if (!ok) {
       markUnhealthy()
@@ -205,6 +212,7 @@ QtObject {
   }
 
   function markUnhealthy() {
+    probeSettled = true
     healthy = false
     if (demoSetting !== "off" && !enginePresent) loadDemo()
   }
@@ -447,6 +455,7 @@ QtObject {
     interval: 150
     repeat: false
     onTriggered: {
+      root.probeSettled = false
       root.hasCounted = false
       root.demoApplied = false
       root.poll()
