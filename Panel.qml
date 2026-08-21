@@ -215,6 +215,7 @@ Item {
   // Bumped on every query change so a slow response for an abandoned query
   // cannot overwrite the current results.
   property int searchSerial: 0
+  property bool searchFailed: false
 
   Timer {
     id: searchDebounce
@@ -228,6 +229,7 @@ Item {
       searchDebounce.stop()
       root.searchSerial++
       root.searching = false
+      root.searchFailed = false
       root.results = []
       root.selectedIndex = -1
       root.expandedId = ""
@@ -243,9 +245,10 @@ Item {
 
     root.searching = true
     var serial = ++root.searchSerial
-    client.search(trimmed, function(rows) {
+    client.search(trimmed, function(rows, ok) {
       if (serial !== root.searchSerial) return
       root.searching = false
+      root.searchFailed = ok === false
       root.results = Array.isArray(rows) ? rows.slice(0, root.maxResults) : []
       root.selectedIndex = root.results.length > 0 ? 0 : -1
       root.expandedId = ""
@@ -857,7 +860,7 @@ Item {
                 Text {
                   anchors.centerIn: parent
                   visible: !root.searching && root.query.trim().length >= 3 && root.results.length === 0
-                  text: "No memories match"
+                  text: root.searchFailed ? "Search failed — the engine did not answer" : "No memories match"
                   color: Qt.darker(Color.popups.text, 1.5)
                   font.family: Style.font.family
                   font.pixelSize: Style.font.body

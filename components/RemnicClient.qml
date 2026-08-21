@@ -38,19 +38,21 @@ QtObject {
 
   signal newMemories(int delta)
 
+  // cb(results, ok): ok false means the engine failed or timed out — the UI
+  // must not present that as "no matches".
   function search(query, cb) {
     if (typeof cb !== "function") return
     var text = String(query === undefined || query === null ? "" : query)
-    if (text.replace(/^\s+|\s+$/g, "") === "") { cb([]); return }
-    if (root.mode === "demo") { cb(mapList(demoData.filter(text), searchLimit)); return }
+    if (text.replace(/^\s+|\s+$/g, "") === "") { cb([], true); return }
+    if (root.mode === "demo") { cb(mapList(demoData.filter(text), searchLimit), true); return }
 
     abortSearch()
     searchCallback = cb
     searchTimeout.restart()
     searchRequest = sendGet(memoriesUrl("q=" + encodeURIComponent(text) + "&sort=updated_desc&limit=" + searchLimit),
-      function(doc) { root.finishSearch(root.mapList(doc && doc.memories ? doc.memories : [], root.searchLimit)) },
-      function() { root.finishSearch([]) })
-    if (searchRequest === null) finishSearch([])
+      function(doc) { root.finishSearch(root.mapList(doc && doc.memories ? doc.memories : [], root.searchLimit), true) },
+      function() { root.finishSearch([], false) })
+    if (searchRequest === null) finishSearch([], false)
   }
 
   function fetchBriefing(cb) {
@@ -340,12 +342,12 @@ QtObject {
     searchCallback = null
   }
 
-  function finishSearch(results) {
+  function finishSearch(results, ok) {
     var done = searchCallback
     searchTimeout.stop()
     searchRequest = null
     searchCallback = null
-    if (typeof done === "function") done(results)
+    if (typeof done === "function") done(results, ok === true)
   }
 
   // ------------------------------------------------------------------ briefing
@@ -517,12 +519,14 @@ QtObject {
   }
 
   property Timer searchTimeout: Timer {
-    interval: 8000
+    // The browse endpoint takes ~8s against a 100k-memory store; a timeout
+    // that beats the engine turns "slow" into a silent empty result.
+    interval: 20000
     repeat: false
     onTriggered: {
       root.abortRequest(root.searchRequest)
       root.searchRequest = null
-      root.finishSearch([])
+      root.finishSearch([], false)
     }
   }
 
