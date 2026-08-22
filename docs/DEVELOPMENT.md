@@ -40,8 +40,8 @@ journalctl --user -t omarchy-shell -f
 A clean run of this plugin produces no `error`, `TypeError`, or binding-loop
 lines. Treat any of those as a defect.
 
-Two failure modes on a development machine are worth knowing, because both look
-like a plugin bug and are not:
+Three failure modes on a development machine are worth knowing, because all
+look like a plugin bug and are not:
 
 - **Two `quickshell` processes.** A restart that races a dying shell can leave a
   duplicate. The bar you see belongs to one instance and your plugin may have
@@ -50,6 +50,13 @@ like a plugin bug and are not:
 - **A stranded lock screen.** If Hyprland's lock surface crashed, screen capture
   is blocked and the shell re-arms the lock on every restart. Clear it with
   `hyprctl --instance 0 eval 'hl.clear_crashed_lockscreen()'`.
+- **A wedged panel loader.** After config or plugin-file churn, the host can
+  stop recomputing its panel list: `omarchy-shell shell toggle` still exits 0,
+  `qs log` shows no error, and no wayland layer is ever created, so the panel
+  looks dead while the bar chip keeps polling. Unwedge the live shell with
+  `qs ipc -p /usr/share/omarchy/shell call shell reloadConfig`. This plugin
+  ships `keepLoaded: true` so it survives that wedge; a fork without it will
+  see its on-demand panel be the first casualty.
 
 ## Never lint or stage inside the plugins directory
 
