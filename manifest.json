@@ -19,5 +19,6 @@
     "category": "Developer Tools",
     "defaultSection": "right",
     "allowMultiple": false
-  }
+  },
+  "keepLoaded": true
 }
