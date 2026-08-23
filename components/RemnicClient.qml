@@ -2,10 +2,12 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// The engine boundary for Remnic Recall. Live reads go over HTTP to the local
-// Remnic daemon rather than per-call CLI spawns: the CLI is itself an HTTP
-// client of the daemon, and browse (recent memories) exists only on the daemon.
-// The briefing is the one exception and the one subprocess in the plugin.
+// The engine boundary for Remnic Recall. Live reads go over HTTP to the Remnic
+// daemon rather than per-call CLI spawns: the CLI is itself an HTTP client of
+// the daemon, and browse (recent memories) exists only on the daemon. The
+// briefing follows the same rule now that the daemon exposes the route — the
+// CLI subprocess survives only as the fallback when the daemon is
+// unreachable, so offline machines keep their local-store behavior.
 //
 // `live`, `demo`, and `offline` are internal; both UIs bind the same public
 // properties and never learn which transport answered.
@@ -74,8 +76,10 @@ QtObject {
       return
     }
     briefingCallbacks.push(cb)
-    // Mid-flight calls just queue; a run that already resolved starts a fresh one.
-    if (briefingResolved || !briefingProcess.running) startBriefing()
+    // Mid-flight calls just queue; a run that already resolved starts a fresh
+    // one. The gate covers both transports: an HTTP request in flight or a
+    // fallback process running.
+    if (briefingResolved || (briefingRequest === null && !briefingProcess.running)) startBriefing()
   }
 
   function refresh() {
@@ -228,6 +232,7 @@ QtObject {
   property var healthRequest: null
   property var memoriesRequest: null
   property var searchRequest: null
+  property var briefingRequest: null
   property var searchCallback: null
 
   property string briefingStdout: ""
@@ -384,6 +389,16 @@ QtObject {
   // no XMLHttpRequest — which every caller already reads as an unreachable
   // engine, so a runtime without it degrades to the offline card or demo data.
   function sendGet(url, onDoc, onFail) {
+    return sendRequest("GET", url, null, onDoc, onFail)
+  }
+
+  // POST with a JSON body. Same contract as sendGet: the request on success
+  // (for abort), null when the runtime has no XMLHttpRequest.
+  function sendPost(url, payload, onDoc, onFail) {
+    return sendRequest("POST", url, payload, onDoc, onFail)
+  }
+
+  function sendRequest(method, url, payload, onDoc, onFail) {
     var request = null
     try {
       request = new XMLHttpRequest()
@@ -428,9 +443,10 @@ QtObject {
       onDoc(doc)
     }
     try {
-      request.open("GET", url)
+      request.open(method, url)
       if (authToken !== "") request.setRequestHeader("Authorization", "Bearer " + authToken)
-      request.send()
+      if (payload !== null) request.setRequestHeader("Content-Type", "application/json")
+      request.send(payload === null ? null : JSON.stringify(payload))
     } catch (sendError) {
       return null
     }
@@ -476,6 +492,45 @@ QtObject {
 
   // ------------------------------------------------------------------ briefing
   function startBriefing() {
+    startBriefingHttp()
+  }
+
+  // HTTP first: the daemon serves the briefing from the store the rest of the
+  // panel already reads. When the daemon is unreachable the request fails
+  // fast, and the CLI fallback below takes over unchanged.
+  function startBriefingHttp() {
+    abortBriefingHttp()
+    briefingResolved = false
+    briefingTimeout.restart()
+    briefingRequest = sendPost(daemonUrl + "/engram/v1/briefing", briefingBody(),
+      function(doc) {
+        root.briefingRequest = null
+        root.briefingTimeout.stop()
+        root.resolveBriefing(briefingFromHttp(doc))
+      },
+      function() {
+        root.briefingRequest = null
+        root.startBriefingCli()
+      })
+    if (briefingRequest === null) startBriefingCli()
+  }
+
+  function abortBriefingHttp() {
+    briefingTimeout.stop()
+    abortRequest(briefingRequest)
+    briefingRequest = null
+  }
+
+  function briefingBody() {
+    var body = { format: "json" }
+    if (configuredNamespace !== "") body.namespace = configuredNamespace
+    return body
+  }
+
+  // Fallback for a daemon that is down: the CLI reads whatever local store
+  // exists, which is empty on machines that only run the panel client — the
+  // exact behavior the HTTP path exists to replace.
+  function startBriefingCli() {
     briefingStdout = ""
     briefingExitCode = -1
     briefingStreamDone = false
@@ -575,11 +630,37 @@ QtObject {
   }
 
   function parseBriefing(raw, exitCode) {
-    var unavailable = { markdown: "", generatedAt: "", available: false }
-    if (exitCode !== 0) return unavailable
+    if (exitCode !== 0) return { markdown: "", generatedAt: "", available: false }
     var doc = extractJson(String(raw || ""))
-    if (doc === null || typeof doc !== "object") return unavailable
+    if (doc === null || typeof doc !== "object")
+      return { markdown: "", generatedAt: "", available: false }
     var node = (doc.briefing && typeof doc.briefing === "object") ? doc.briefing : doc
+    return briefingFromNode(node)
+  }
+
+  // The HTTP route answers with the operation result: `markdown` and
+  // `followupsUnavailableReason` at the top, the sectioned `json` document
+  // nested under `json`. Map it onto the node shape both transports share.
+  function briefingFromHttp(doc) {
+    if (!doc || typeof doc !== "object") return { markdown: "", generatedAt: "", available: false }
+    var nested = (doc.json && typeof doc.json === "object") ? doc.json : null
+    return briefingFromNode({
+      markdown: doc.markdown,
+      generatedAt: firstString([
+        nested ? nested.generatedAt : undefined,
+        doc.window && typeof doc.window === "object" ? doc.window.from : undefined
+      ]),
+      sections: nested ? nested.sections : undefined,
+      followupsUnavailableReason: doc.followupsUnavailableReason
+    })
+  }
+
+  // Shared result mapping for both transports. `sections`, when present, is a
+  // dict keyed by the engine's four section names; `markdown` wins when the
+  // engine rendered prose.
+  function briefingFromNode(node) {
+    var unavailable = { markdown: "", generatedAt: "", available: false }
+    if (node === null || typeof node !== "object") return unavailable
     var generatedAt = firstString([node.generatedAt, node.generated_at, node.createdAt, node.created])
     var markdown = sanitizeBriefingMarkdown(firstString([node.markdown, node.text, node.content, node.body]))
     if (markdown === "" && node.sections && typeof node.sections === "object") {
@@ -601,7 +682,10 @@ QtObject {
     // synchronously even when the text is short.
     var lines = markdown.split("\n")
     if (lines.length > maxBriefingLines) markdown = lines.slice(0, maxBriefingLines).join("\n")
-    return { markdown: markdown, generatedAt: generatedAt, available: true }
+    // The engine explains a missing follow-ups section when it has a reason;
+    // the panel renders it as a muted hint, plain text only.
+    var hint = clampText(node.followupsUnavailableReason, 200)
+    return { markdown: markdown, generatedAt: generatedAt, available: true, followupsHint: hint }
   }
 
   // ------------------------------------------------------------------ demo
@@ -708,6 +792,8 @@ QtObject {
     interval: 30000
     repeat: false
     onTriggered: {
+      root.abortRequest(root.briefingRequest)
+      root.briefingRequest = null
       root.briefingProcess.running = false
       root.resolveBriefing({ markdown: "", generatedAt: "", available: false })
     }
@@ -749,9 +835,9 @@ QtObject {
     fileToken = token
   }
 
-  // The only subprocess in the plugin: fixed argv, no shell, no user data
-  // beyond the settings-provided binary path, and the daemon exposes no
-  // briefing endpoint to replace it with.
+  // The only subprocess in the plugin, and only the fallback leg of the
+  // briefing now that the daemon exposes the route: fixed argv, no shell, no
+  // user data beyond the settings-provided binary path.
   property Process briefingProcess: Process {
     stdout: StdioCollector {
       waitForEnd: true

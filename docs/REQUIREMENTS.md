@@ -69,7 +69,7 @@ Left-click: toggle panel (opens on Recall tab). Right-click: refresh / switch ta
 
 ## 6. Data & integration
 
-- ~~All engine access via subprocess calls to the Remnic CLI~~ **superseded during implementation** — see [DESIGN.md §1](DESIGN.md#1-engine-access-architecture-settles-requirements-610). Live reads go over HTTP to the Remnic daemon (`GET /engram/v1/health`, `GET /engram/v1/memories`); the CLI remains the surface for the briefing only. The CLI is itself an HTTP client of that daemon and has no recent-memories command, so the daemon is the narrower, faster surface.
+- ~~All engine access via subprocess calls to the Remnic CLI~~ **superseded during implementation** — see [DESIGN.md §1](DESIGN.md#1-engine-access-architecture-settles-requirements-610). Live reads go over HTTP to the Remnic daemon (`GET /engram/v1/health`, `GET /engram/v1/memories`, `POST /engram/v1/briefing`); the CLI remains only as the briefing fallback when the daemon is unreachable. The CLI is itself an HTTP client of that daemon and has no recent-memories command, so the daemon is the narrower, faster surface.
 - Capture-count polling every `pollSeconds`; search calls are on-demand only.
 - Demo dataset: ~25 hand-written sample memories + one sample briefing in `assets/demo/`, loaded from disk, clearly watermarked in the UI.
 - Defensive parsing throughout: engine version drift degrades features (hide the Briefing tab if the command is missing) rather than erroring the whole panel.

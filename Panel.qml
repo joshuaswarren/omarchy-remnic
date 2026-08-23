@@ -69,6 +69,7 @@ Item {
       return recentList.contentHeight
     if (root.tab === "briefing")
       return briefingText.implicitHeight + briefingFooter.height + Style.spacing.md
+        + (root.briefingHint !== "" ? briefingHintText.height + Style.spacing.sm : 0)
     return Style.space(120)
   }
 
@@ -324,6 +325,7 @@ Item {
   property var briefing: null
   property bool briefingPending: false
   readonly property string briefingMarkdown: root.briefing ? String(root.briefing.markdown || "") : ""
+  readonly property string briefingHint: root.briefing ? String(root.briefing.followupsHint || "") : ""
 
   function loadBriefing() {
     if (root.briefingPending) return
@@ -1100,7 +1102,7 @@ Item {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.topMargin: Style.spacing.md
-                anchors.bottom: briefingFooter.top
+                anchors.bottom: briefingHintText.visible ? briefingHintText.top : briefingFooter.top
                 anchors.bottomMargin: Style.spacing.md
                 visible: root.briefingMarkdown !== ""
                 clip: true
@@ -1186,6 +1188,24 @@ Item {
                   horizontalAlignment: Text.AlignHCenter
                   wrapMode: Text.WordWrap
                 }
+              }
+              Text {
+                id: briefingHintText
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: briefingFooter.top
+                anchors.bottomMargin: Style.spacing.sm
+                visible: root.briefingHint !== "" && root.briefingMarkdown !== ""
+                text: root.briefingHint
+                // Engine-supplied reason string, rendered verbatim as plain
+                // text: no markup interpretation, no rich text.
+                textFormat: Text.PlainText
+                color: Qt.darker(Color.popups.text, 1.6)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+                wrapMode: Text.WordWrap
+                elide: Text.ElideRight
               }
 
               Item {

@@ -81,7 +81,7 @@ function refresh()              // re-poll now
 ## 5. Security invariants (A6 audit points)
 
 1. Exactly THREE `Process` call sites in the whole tree (the A6 allowlist):
-   - briefing runner in `RemnicClient.qml`, argv `[remnicCommand, "briefing", "--format", "json"]` — no shell, no user-influenced argv beyond `remnicCommand` (settings-provided binary path, execvp semantics, never parsed by a shell);
+   - briefing fallback in `RemnicClient.qml`, argv `[remnicCommand, "briefing", "--format", "json"]` — no shell, no user-influenced argv beyond `remnicCommand` (settings-provided binary path, execvp semantics, never parsed by a shell). The live path is `POST /engram/v1/briefing` on the daemon (same JSON body shape, same bearer token as every other read); the subprocess runs only when the daemon is unreachable;
    - clipboard copy in the panel, argv `["wl-copy"]` with the memory text written to stdin (never in argv), spawned only on explicit Enter;
    - agent handoff in the panel, argv `["omarchy-agent-prompt", <memory text>]` — a constant binary name, spawned only on explicit Ctrl+Enter and only when the user has set `sendToAgent: true`. This is the one place memory text is passed as an argument, which makes it readable in the process list by any local process; that exposure is the entire reason the action is opt-in and off by default. The seed is clamped to `maxPromptChars`. All three are read-only with respect to Remnic: none can create, forget, or migrate a memory.
 2. Token read from disk is never logged, never rendered, sent only as `Authorization` header to `daemonUrl`.

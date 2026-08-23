@@ -201,9 +201,10 @@ nothing it could not already do directly.
 - **The panel says offline but the daemon is running.** Check `daemonUrl`, and
   that the token was issued by *that* daemon:
   `curl -H "Authorization: Bearer <token>" <daemonUrl>/engram/v1/health`.
-- **The briefing tab is missing in live mode.** The `remnic` binary is not on
-  the shell's `PATH`, or the briefing command failed. Run `remnic briefing
-  --format json` in a terminal to see the error.
+- **The briefing tab is missing in live mode.** The daemon's briefing route
+  answered with nothing renderable and the CLI fallback failed — the `remnic`
+  binary is not on the shell's `PATH`, or the briefing command failed. Run
+  `remnic briefing --format json` in a terminal to see the error.
 - **Everything shows demo data.** The plugin found no daemon response and no
   token. Set `demoMode` to `off` to see the offline card instead, or configure
   `daemonUrl` and the token.
