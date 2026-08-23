@@ -789,7 +789,7 @@ QtObject {
   }
 
   property Timer briefingTimeout: Timer {
-    interval: 30000
+    interval: 90000
     repeat: false
     onTriggered: {
       root.abortRequest(root.briefingRequest)
