@@ -1,5 +1,7 @@
 # Remnic Recall
 
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink)](https://github.com/sponsors/joshuaswarren)
+
 Your AI agents' memory, in the [Omarchy](https://omarchy.org) bar.
 
 ![Remnic Recall demo](docs/screenshots/demo.gif)
@@ -216,6 +218,14 @@ Setup, the hot-reload loop, and the log commands are in
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The frozen design contract is in
 [docs/DESIGN.md](docs/DESIGN.md); the spec and acceptance criteria are in
 [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
+
+## Support
+
+Every bit of support helps keep omarchy-remnic alive and free. If you are able, [sponsor on GitHub](https://github.com/sponsors/joshuaswarren) or send a Lightning donation to `joshuaswarren@strike.me` to directly fund continued development and new integrations.
+
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?style=for-the-badge)](https://github.com/sponsors/joshuaswarren)
+
+If financial support is not an option, you can still make a big difference: [star the repo](https://github.com/joshuaswarren/omarchy-remnic), share it, or recommend it to a colleague. Word of mouth is how most people find omarchy-remnic.
 
 ## License
 
