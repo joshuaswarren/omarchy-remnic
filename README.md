@@ -167,8 +167,11 @@ Memory content is sensitive, so the plugin is read-only by contract and states
 exactly what it does.
 
 - **Network.** Live reads go to the Remnic daemon's existing HTTP API,
-  `GET /engram/v1/health` and `GET /engram/v1/memories`. No mutating endpoint is
-  ever called. `daemonUrl` is the only host contacted. No telemetry.
+  `GET /engram/v1/health`, `GET /engram/v1/memories`, and `POST
+  /engram/v1/briefing`, which the daemon renders as a pure read from memories
+  it already holds; the `remnic briefing` CLI is the fallback when the daemon
+  does not answer. No endpoint that creates, edits, or forgets a memory is ever
+  called. `daemonUrl` is the only host contacted. No telemetry.
 - **Credentials.** The bearer token is read from disk, sent only as an
   `Authorization` header, and never logged, rendered, or placed in a URL, an
   argument vector, or the clipboard. It is withheld unless the destination is
@@ -221,7 +224,7 @@ Setup, the hot-reload loop, and the log commands are in
 
 ## Support
 
-Every bit of support helps keep omarchy-remnic alive and free. If you are able, [sponsor on GitHub](https://github.com/sponsors/joshuaswarren) or send a Lightning donation to `joshuaswarren@strike.me` to directly fund continued development and new integrations.
+Every bit of support helps keep omarchy-remnic alive and free. If you are able, [sponsor on GitHub](https://github.com/sponsors/joshuaswarren), [support on Ko-fi](https://ko-fi.com/joshuaswarren), or send a Lightning donation to `joshuaswarren@strike.me` to directly fund continued development and new integrations.
 
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?style=for-the-badge)](https://github.com/sponsors/joshuaswarren)
 
