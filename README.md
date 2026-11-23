@@ -218,9 +218,7 @@ nothing it could not already do directly.
 ## Development
 
 Setup, the hot-reload loop, and the log commands are in
-[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). The frozen design contract is in
-[docs/DESIGN.md](docs/DESIGN.md); the spec and acceptance criteria are in
-[docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Support
 
